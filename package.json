@@ -1,0 +1,15 @@
+{
+    "name": "jusix",
+    "version": "0.1.0",
+    "description": "",
+    "author": "",
+    "license": "ISC",
+    "keywords": ["swc-plugin"],
+    "main": "target/wasm32-wasi/release/jusix.wasm",
+    "scripts": {
+        "prepublishOnly": "cargo build-wasi --release",
+        "prepack": "cp target/wasm32-wasi/release/jusix.wasm ."
+    },
+    "files": [],
+    "preferUnplugged": true
+}
