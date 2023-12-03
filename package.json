@@ -4,12 +4,21 @@
     "description": "",
     "author": "",
     "license": "ISC",
-    "keywords": ["swc-plugin"],
+    "keywords": [
+        "swc-plugin"
+    ],
     "main": "target/wasm32-wasi/release/jusix.wasm",
     "scripts": {
         "prepublishOnly": "cargo build-wasi --release",
         "prepack": "cp target/wasm32-wasi/release/jusix.wasm ."
     },
     "files": [],
-    "preferUnplugged": true
+    "preferUnplugged": true,
+    "dependencies": {
+        "jusix": "^0.1.0"
+    },
+    "devDependencies": {
+        "@swc/cli": "^0.1.63",
+        "@swc/core": "^1.3.100"
+    }
 }
