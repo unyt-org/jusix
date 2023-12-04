@@ -1,5 +1,5 @@
 use swc_core::{ecma::{
-    ast::{Program, Ident, ArrowExpr, JSXEmptyExpr, JSXExpr, JSXExprContainer, BlockStmtOrExpr, Expr, CallExpr, Callee, ExprOrSpread, Lit, JSXText, Null},
+    ast::{Program, Ident, ArrowExpr, JSXEmptyExpr, JSXExpr, JSXExprContainer, BlockStmtOrExpr, Expr, CallExpr, Callee, ExprOrSpread, Lit, Null},
     transforms::testing::test,
     visit::{FoldWith, Fold},
 }, common::{Span, util::take::Take, DUMMY_SP}};
@@ -16,6 +16,10 @@ impl TransformVisitor {
             Expr::Lit(_) |
             Expr::JSXElement(_) |
             Expr::Ident(_) => e,
+
+            // keep functions
+            Expr::Arrow(_) |
+            Expr::Fn(_) => e,
 
             // has a $.x property, don't add always
             Expr::Member(m) if 
