@@ -17,6 +17,31 @@ impl TransformVisitor {
             Expr::JSXElement(_) |
             Expr::Ident(_) => e,
 
+            // has a $.x property, don't add always
+            Expr::Member(m) if 
+                m.obj.is_member() && 
+                (
+                    m.obj.as_member().unwrap().prop.is_ident_with("$") ||
+                    m.obj.as_member().unwrap().prop.is_ident_with("$$") 
+                )
+                => e,
+                
+
+            // already has an always() or $$() wrapper
+            Expr::Call(c) if 
+                c.callee.is_expr() && (
+                    c.callee.as_expr().unwrap().is_ident_ref_to("always") ||
+                    c.callee.as_expr().unwrap().is_ident_ref_to("$$")
+                )
+                => e,
+            
+            // convert redundant $()
+            Expr::Call(c) if 
+                c.callee.is_expr() && (
+                    c.callee.as_expr().unwrap().is_ident_ref_to("$")
+                )
+                => Box::new(Expr::Call(self.fold_call_expr(c.clone()))),
+    
             // default: wrap in always
             _ => Box::new(
                 Expr::Call(CallExpr {

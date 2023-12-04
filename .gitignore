@@ -1,3 +1,5 @@
 /target
 ^target/
 target
+_test
+node_modules
