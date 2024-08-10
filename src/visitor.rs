@@ -1,99 +1,250 @@
-use swc_core::{ecma::{
-    ast::{Ident, ArrowExpr, JSXEmptyExpr, JSXExpr, JSXExprContainer, BlockStmtOrExpr, Expr, CallExpr, Callee, ExprOrSpread, Lit, Null},
-    visit::Fold,
-}, common::{Span, util::take::Take, DUMMY_SP}};
+use std::collections::HashSet;
+
+use swc_core::ecma::ast::{JSXAttr, JSXAttrName, JSXAttrValue};
+use swc_core::ecma::visit::VisitWith;
+use swc_core::{
+    atoms::Atom,
+    common::{util::take::Take, SyntaxContext, DUMMY_SP},
+    ecma::{
+        ast::{
+            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt,
+            FnDecl, Ident, JSXEmptyExpr, JSXExpr, JSXExprContainer, Lit, Null, ReturnStmt, Stmt,
+            Str, VarDecl,
+        },
+        visit::{Fold, Visit},
+    },
+};
+
+struct VariableCollector {
+    variables: HashSet<String>,
+}
+
+impl VariableCollector {
+    fn new() -> Self {
+        VariableCollector {
+            variables: HashSet::new(),
+        }
+    }
+}
+
+impl Visit for VariableCollector {
+    fn visit_ident(&mut self, ident: &Ident) {
+        self.variables.insert(ident.sym.to_string());
+    }
+
+    fn visit_var_decl(&mut self, var_decl: &VarDecl) {
+        for decl in &var_decl.decls {
+            decl.name.visit_with(self);
+        }
+    }
+
+    fn visit_fn_decl(&mut self, fn_decl: &FnDecl) {
+        // Visit the function body
+        fn_decl.function.body.visit_with(self);
+    }
+
+    fn visit_block_stmt(&mut self, block_stmt: &BlockStmt) {
+        for stmt in &block_stmt.stmts {
+            stmt.visit_with(self);
+        }
+    }
+}
 
 pub struct TransformVisitor;
 
 impl TransformVisitor {
     // wraps in expression in always() if needed
     fn transform_expr_reactive(&mut self, e: Box<Expr>) -> Box<Expr> {
-
         match e.unwrap_parens() {
             // keep single literal values
-            Expr::Lit(_) |
-            Expr::JSXElement(_) |
-            Expr::Ident(_) => e,
+            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) => e,
 
             // keep functions
-            Expr::Arrow(_) |
-            Expr::Fn(_) => e,
+            Expr::Arrow(_) | Expr::Fn(_) => e,
 
             // has a $.x property, don't add always
-            Expr::Member(m) if 
-                m.obj.is_member() && 
-                (
-                    m.obj.as_member().unwrap().prop.is_ident_with("$") ||
-                    m.obj.as_member().unwrap().prop.is_ident_with("$$") 
-                )
-                => e,
-                
+            Expr::Member(m)
+                if m.obj.is_member()
+                    && (m.obj.as_member().unwrap().prop.is_ident_with("$")
+                        || m.obj.as_member().unwrap().prop.is_ident_with("$$")) =>
+            {
+                e
+            }
 
             // already has an always() or $$() wrapper
-            Expr::Call(c) if 
-                c.callee.is_expr() && (
-                    c.callee.as_expr().unwrap().is_ident_ref_to("always") ||
-                    c.callee.as_expr().unwrap().is_ident_ref_to("$$")
-                )
-                => e,
-            
+            Expr::Call(c)
+                if c.callee.is_expr()
+                    && (c.callee.as_expr().unwrap().is_ident_ref_to("always")
+                        || c.callee.as_expr().unwrap().is_ident_ref_to("$$")) =>
+            {
+                e
+            }
+
             // convert redundant $()
-            Expr::Call(c) if 
-                c.callee.is_expr() && (
-                    c.callee.as_expr().unwrap().is_ident_ref_to("$")
-                )
-                => Box::new(Expr::Call(self.fold_call_expr(c.clone()))),
-    
+            Expr::Call(c)
+                if c.callee.is_expr() && (c.callee.as_expr().unwrap().is_ident_ref_to("$")) =>
+            {
+                Box::new(Expr::Call(self.fold_call_expr(c.clone())))
+            }
+
             // default: wrap in always
-            _ => Box::new(
-                Expr::Call(CallExpr {
+            _ => Box::new(Expr::Call(CallExpr {
+                span: DUMMY_SP,
+                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                    "always".into(),
+                    DUMMY_SP,
+                    Default::default(),
+                )))),
+                args: vec![Expr::Arrow(ArrowExpr {
                     span: DUMMY_SP,
-                    callee: Callee::Expr(Box::new(Expr::Ident(Ident::new("always".into(), DUMMY_SP)))),
-                    args: vec![Expr::Arrow(ArrowExpr {
-                        span: DUMMY_SP,
-                        params: Take::dummy(),
-                        body: Box::new(BlockStmtOrExpr::Expr(e)),
-                        is_async: false,
-                        is_generator: false,
-                        type_params: Take::dummy(),
-                        return_type: Take::dummy(),
-                    }).into()],
-                    type_args: Take::dummy(),
+                    params: Take::dummy(),
+                    body: Box::new(BlockStmtOrExpr::Expr(e)),
+                    is_async: false,
+                    is_generator: false,
+                    type_params: Take::dummy(),
+                    return_type: Take::dummy(),
+                    ctxt: Default::default(),
                 })
-            
-        )
+                .into()],
+                type_args: Take::dummy(),
+                ctxt: Default::default(),
+            })),
+        }
+    }
+
+    fn transform_transferable_closure(arrow: &ArrowExpr, ctxt: SyntaxContext) -> ArrowExpr {
+        // find all variables used in the arrow function body
+        let mut collector = VariableCollector::new();
+        arrow.body.visit_with(&mut collector);
+
+        let mut body_vec = vec![];
+
+        // add use();
+        if collector.variables.len() > 0 {
+            body_vec.push(Stmt::Expr(ExprStmt {
+                span: DUMMY_SP,
+                expr: Box::new(Expr::Call(CallExpr {
+                    span: DUMMY_SP,
+                    callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                        "use".into(),
+                        DUMMY_SP,
+                        ctxt,
+                    )))),
+                    args: collector
+                        .variables
+                        .iter()
+                        // ignore "use" variable
+                        .filter(|v| !(*v == "use"))
+                        .map(|v| {
+                            Expr::Lit(Lit::Str(Str {
+                                span: DUMMY_SP,
+                                value: Atom::from(v.clone()),
+                                raw: Some(Atom::from(v.clone())),
+                            }))
+                        })
+                        .map(|v| v.into())
+                        .collect(),
+                    type_args: Take::dummy(),
+                    ctxt,
+                })),
+            }))
         }
 
-        
+        // add original body
+        match &*arrow.body {
+            BlockStmtOrExpr::BlockStmt(b) => {
+                for stmt in b.stmts.iter() {
+                    body_vec.push(stmt.clone());
+                }
+            }
+            BlockStmtOrExpr::Expr(e) => {
+                // return + orignal expr
+                body_vec.push(Stmt::Return(ReturnStmt {
+                    span: DUMMY_SP,
+                    arg: Some(Box::new(*e.clone())),
+                }));
+            }
+        }
+
+        ArrowExpr {
+            span: arrow.span,
+            ctxt: arrow.ctxt,
+            params: arrow.params.clone(),
+            // add use(); followed by original body
+            body: Box::new(BlockStmtOrExpr::BlockStmt(BlockStmt {
+                span: DUMMY_SP,
+                ctxt: arrow.ctxt,
+                stmts: body_vec,
+            })),
+            is_async: arrow.is_async,
+            is_generator: arrow.is_generator,
+            type_params: arrow.type_params.clone(),
+            return_type: arrow.return_type.clone(),
+        }
+    }
+
+    fn transform_transferable_call_expr(call: &CallExpr) -> CallExpr {
+        let arg = TransformVisitor::get_first_arg(call);
+
+        match arg.unwrap_parens() {
+            // is arrow function callback
+            Expr::Arrow(a) => CallExpr {
+                span: call.span,
+                callee: call.callee.clone(),
+                args: vec![Box::new(Expr::Arrow(
+                    TransformVisitor::transform_transferable_closure(a, call.ctxt),
+                ))
+                .into()],
+                type_args: call.type_args.clone(),
+                ctxt: call.ctxt,
+            },
+            _ => call.clone(),
+        }
+    }
+
+    fn get_first_arg(call: &CallExpr) -> Box<Expr> {
+        call.clone()
+            .args
+            .into_iter()
+            .nth(0)
+            .unwrap_or(ExprOrSpread {
+                expr: Box::new(Expr::Lit(Lit::Null(Null { span: DUMMY_SP }))),
+                spread: None,
+            })
+            .expr
     }
 }
- 
+
 impl Fold for TransformVisitor {
-
-    fn fold_call_expr(&mut self, n: CallExpr) -> CallExpr {
-
-        return match &n.callee {
+    fn fold_call_expr(&mut self, call: CallExpr) -> CallExpr {
+        return match &call.callee {
             Callee::Expr(e) => {
+                let arg = TransformVisitor::get_first_arg(&call);
+
                 return match e.unwrap_parens() {
                     Expr::Ident(i) if i.sym.eq_ignore_ascii_case("$") => {
-
-                        let arg = n.args.into_iter().nth(0).unwrap_or(ExprOrSpread {expr:Box::new(Expr::Lit(Lit::Null(Null {span:DUMMY_SP}))), spread:None}).expr;
-
                         return match arg.unwrap_parens() {
                             // $$ ()
-                            Expr::Lit(_) | 
-                            Expr::JSXElement(_) | 
-                            Expr::Ident(_) => CallExpr {
+                            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) => CallExpr {
                                 span: DUMMY_SP,
-                                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new("$$".into(), DUMMY_SP)))),
+                                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                                    "$$".into(),
+                                    DUMMY_SP,
+                                    call.ctxt,
+                                )))),
                                 args: vec![arg.into()],
                                 type_args: Take::dummy(),
+                                ctxt: call.ctxt,
                             },
 
                             // default: wrap in always
                             _ => CallExpr {
                                 span: DUMMY_SP,
-                                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new("always".into(), DUMMY_SP)))),
+                                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                                    "always".into(),
+                                    DUMMY_SP,
+                                    call.ctxt,
+                                )))),
                                 args: vec![Expr::Arrow(ArrowExpr {
                                     span: DUMMY_SP,
                                     params: Take::dummy(),
@@ -102,15 +253,24 @@ impl Fold for TransformVisitor {
                                     is_generator: false,
                                     type_params: Take::dummy(),
                                     return_type: Take::dummy(),
-                                }).into()],
+                                    ctxt: call.ctxt,
+                                })
+                                .into()],
                                 type_args: Take::dummy(),
-                            }
-                        }
+                                ctxt: call.ctxt,
+                            },
+                        };
                     }
-                    _ => n
+
+                    Expr::Ident(i) if i.sym.eq_ignore_ascii_case("run") => {
+                        // add "use()" to run (()=>{})
+                        return TransformVisitor::transform_transferable_call_expr(&call);
+                    }
+
+                    _ => call,
                 };
-            },
-            _ => n
+            }
+            _ => call,
         };
 
         // if n.callee.is_expr() && n.callee.expect_expr().expect_ident().sym.eq_ignore_ascii_case("$") {
@@ -129,23 +289,76 @@ impl Fold for TransformVisitor {
         //             type_args: Take::dummy(),
         //         }
         // }
-      
+
         // return n
     }
 
-    fn fold_jsx_expr_container(&mut self, n: JSXExprContainer) -> JSXExprContainer {
-
-        JSXExprContainer {
-            span: Span::dummy_with_cmt(),
-            expr: (
-
-                match n.expr {
-                    JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e)),
-                    JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP })
+    fn fold_jsx_attr(&mut self, node: JSXAttr) -> JSXAttr {
+        // if attribute ends with :frontend, transform_transferable_call_expr
+        match node.name.clone() {
+            JSXAttrName::JSXNamespacedName(name)
+                if name.name.sym.eq_ignore_ascii_case("frontend") =>
+            {
+                match node.value.clone() {
+                    Some(JSXAttrValue::JSXExprContainer(c)) => {
+                        match c.expr.clone() {
+                            JSXExpr::Expr(e) => match e.unwrap_parens() {
+                                Expr::Arrow(a) => return JSXAttr {
+                                    span: node.span,
+                                    name: node.name.clone(),
+                                    value: Some(JSXAttrValue::JSXExprContainer(JSXExprContainer {
+                                        span: DUMMY_SP,
+                                        expr: JSXExpr::Expr(Box::new(Expr::Arrow(
+                                            TransformVisitor::transform_transferable_closure(
+                                                &a, a.ctxt,
+                                            ),
+                                        ))),
+                                    })),
+                                },
+                                Expr::Call(c) => return JSXAttr {
+                                    span: node.span,
+                                    name: node.name.clone(),
+                                    value: Some(JSXAttrValue::JSXExprContainer(JSXExprContainer {
+                                        span: DUMMY_SP,
+                                        expr: JSXExpr::Expr(Box::new(Expr::Call(
+                                            TransformVisitor::transform_transferable_call_expr(&c),
+                                        ))),
+                                    })),
+                                },
+                                _ => JSXAttr {
+                                    span: node.span,
+                                    name: node.name.clone(),
+                                    value: Some(JSXAttrValue::JSXExprContainer(
+                                        self.fold_jsx_expr_container(c),
+                                    )),
+                                },
+                            },
+                            _ => node,
+                        }
+                    }
+                    _ => node,
                 }
-
-            )
+            }
+            _ => match node.value.clone() {
+                Some(JSXAttrValue::JSXExprContainer(c)) => JSXAttr {
+                    span: node.span,
+                    name: node.name.clone(),
+                    value: Some(JSXAttrValue::JSXExprContainer(
+                        self.fold_jsx_expr_container(c),
+                    )),
+                },
+                _ => node,
+            },
         }
     }
-        
+
+    fn fold_jsx_expr_container(&mut self, n: JSXExprContainer) -> JSXExprContainer {
+        JSXExprContainer {
+            span: DUMMY_SP,
+            expr: (match n.expr {
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e)),
+                JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
+            }),
+        }
+    }
 }
