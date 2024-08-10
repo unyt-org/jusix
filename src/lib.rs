@@ -75,7 +75,6 @@ test!(
     r#"<button value={x+1} />"#
 );
 
-
 test!(
     Syntax::Es(EsSyntax {
         jsx: true,

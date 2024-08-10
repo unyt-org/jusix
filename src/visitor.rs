@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use swc_core::ecma::ast::{JSXAttr, JSXAttrName, JSXAttrValue};
 use swc_core::ecma::visit::VisitWith;
 use swc_core::{
@@ -16,20 +14,23 @@ use swc_core::{
 };
 
 struct VariableCollector {
-    variables: HashSet<String>,
+    variables: Vec<String>,
 }
 
 impl VariableCollector {
     fn new() -> Self {
         VariableCollector {
-            variables: HashSet::new(),
+            variables: Vec::new(),
         }
     }
 }
 
 impl Visit for VariableCollector {
     fn visit_ident(&mut self, ident: &Ident) {
-        self.variables.insert(ident.sym.to_string());
+        // add variable to list if not already present
+        if !self.variables.contains(&ident.sym.to_string()) {
+            self.variables.push(ident.sym.to_string());
+        }
     }
 
     fn visit_var_decl(&mut self, var_decl: &VarDecl) {

@@ -1,5 +1,5 @@
 run(()=>{
-    use(y, x);
+    use(x, y);
     use(x);
     return x + y;
 });
