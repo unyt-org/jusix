@@ -1,4 +1,4 @@
-use swc_core::ecma::ast::{JSXAttr, JSXAttrName, JSXAttrValue};
+use swc_core::ecma::ast::{JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild};
 use swc_core::ecma::visit::VisitWith;
 use swc_core::{
     atoms::Atom,
@@ -351,6 +351,35 @@ impl Fold for TransformVisitor {
                 _ => node,
             },
         }
+    }
+
+    fn fold_jsx_element_child(&mut self, child: JSXElementChild) -> JSXElementChild {
+        match child {
+            JSXElementChild::JSXExprContainer(c) => JSXElementChild::JSXExprContainer(
+                self.fold_jsx_expr_container(c),
+            ),
+            JSXElementChild::JSXSpreadChild(c) => JSXElementChild::JSXSpreadChild(
+                JSXSpreadChild {
+                    span: DUMMY_SP,
+                    expr: self.transform_expr_reactive(c.expr)
+                }
+            ),
+            JSXElementChild::JSXElement(e) => JSXElementChild::JSXElement(
+                Box::new(JSXElement {
+                    span: DUMMY_SP,
+                    opening: e.opening,
+                    children: self.fold_jsx_element_childs(e.children),
+                    closing: e.closing,
+                })
+            ),
+            _ => child,
+        }
+    }
+
+    fn fold_jsx_element_childs(&mut self, node: Vec<JSXElementChild>) -> Vec<JSXElementChild> {
+        node.into_iter()
+            .map(|child| self.fold_jsx_element_child(child))
+            .collect()
     }
 
     fn fold_jsx_expr_container(&mut self, n: JSXExprContainer) -> JSXExprContainer {

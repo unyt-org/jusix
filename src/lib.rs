@@ -103,3 +103,29 @@ test!(
         return x + y;
     })"#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t11,
+    r#"<div>{ x + 1 }</div>"#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t12,
+    r#"<div>
+        <span>{ x + 1 }</span>
+        <span>{ y + 1 }</span>
+        <span>X + Y = { x + y }</span>
+    </div>"#
+);
