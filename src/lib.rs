@@ -129,3 +129,19 @@ test!(
         <span>X + Y = { x + y }</span>
     </div>"#
 );
+
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t13,
+    r#"<div>
+        {
+            x ? <span>{ x + 1 }</span> : <span>False</span>
+        }
+    </div>"#
+);
