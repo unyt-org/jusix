@@ -141,7 +141,9 @@ test!(
     t13,
     r#"<div>
         {
-            x ? <span>{ x + 1 }</span> : <span>False</span>
+            x ? 
+                <span>{ x + 1 }</span> : 
+                <span>False</span>
         }
     </div>"#
 );
@@ -351,3 +353,19 @@ test!(
     ])
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t29,
+    r#"
+    export default <div>
+        Count is {count + 1}
+    </div>;
+    "#
+);
+
