@@ -1,16 +1,14 @@
-use swc_core::{
-    atoms::Atom,
-    common::{util::take::Take, SyntaxContext, DUMMY_SP},
-    ecma::{
-        ast::{
-            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt,
-            FnDecl, Ident, JSXEmptyExpr, JSXExpr, JSXExprContainer, Lit, Null, ReturnStmt, Stmt,
-            Str, VarDecl,
-            IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp
-        },
-        visit::{Fold, Visit, FoldWith, VisitWith},
-    },
+use swc_ecma_ast::{
+    ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt,
+    FnDecl, Ident, JSXEmptyExpr, JSXExpr, JSXExprContainer, Lit, Null, ReturnStmt, Stmt,
+    Str, VarDecl,
+    IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp
 };
+
+use swc_ecma_visit::{Fold, Visit, FoldWith, VisitWith};
+use swc_atoms::Atom;
+use swc_common::{util::take::Take, SyntaxContext, DUMMY_SP};
+
 
 struct VariableCollector {
     variables: Vec<String>,
