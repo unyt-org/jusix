@@ -1,5 +1,3 @@
-use swc_core::ecma::ast::{FnExpr, IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp};
-use swc_core::ecma::visit::{FoldWith, VisitWith};
 use swc_core::{
     atoms::Atom,
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
@@ -8,8 +6,9 @@ use swc_core::{
             ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt,
             FnDecl, Ident, JSXEmptyExpr, JSXExpr, JSXExprContainer, Lit, Null, ReturnStmt, Stmt,
             Str, VarDecl,
+            IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp
         },
-        visit::{Fold, Visit},
+        visit::{Fold, Visit, FoldWith, VisitWith},
     },
 };
 
