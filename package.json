@@ -1,6 +1,6 @@
 {
     "name": "jusix",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "",
     "author": "",
     "license": "ISC",
@@ -14,9 +14,6 @@
     },
     "files": [],
     "preferUnplugged": true,
-    "dependencies": {
-        "jusix": "^0.1.0"
-    },
     "devDependencies": {
         "@swc/cli": "^0.1.63",
         "@swc/core": "^1.3.100"
