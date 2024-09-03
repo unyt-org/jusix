@@ -1,4 +1,4 @@
-use swc_core::ecma::ast::{JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild};
+use swc_core::ecma::ast::{IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp};
 use swc_core::ecma::visit::VisitWith;
 use swc_core::{
     atoms::Atom,
@@ -71,6 +71,38 @@ impl TransformVisitor {
             {
                 e
             }
+
+            // x.y property, convert to prop(x, 'y')
+            Expr::Member(m) =>
+                    Box::new(Expr::Call(
+                        CallExpr {
+                            span: DUMMY_SP,
+                            callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                                "prop".into(),
+                                DUMMY_SP,
+                                Default::default(),
+                            )))),
+                            args: vec![
+                                m.obj.clone().into(),
+                                // convert prop to string
+                                match &m.prop {
+                                    MemberProp::Ident(_) => Expr::Lit(Lit::Str(Str {
+                                        span: DUMMY_SP,
+                                        value: m.prop.as_ident().unwrap().sym.clone().into(),
+                                        raw: None
+                                    })).into(),
+                                    MemberProp::Computed(e) => e.expr.clone().into(),
+                                    MemberProp::PrivateName(_) => panic!("Private name not supported"),
+                                }
+                            ],
+                            type_args: Take::dummy(),
+                            ctxt: Default::default(),
+                        }
+                )
+            ),
+
+            // convert array.map(() => {}) to array.$.map(() => {})
+            // TODO
 
             // already has an always() or $$() wrapper
             Expr::Call(c)

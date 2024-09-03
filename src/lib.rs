@@ -145,3 +145,64 @@ test!(
         }
     </div>"#
 );
+
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t14,
+    r#"<div>{x.title}</div>"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t15,
+    r#"<input value={x.name}/>"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t16,
+    r#"<input value={x.$.name} id={x.$$.name}/>"#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t17,
+    r#"<input value={x['äü']}/>"#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t18,
+    r#"<div>
+        {
+            array.map((item) => {
+                return <span>{item}</span>
+            })
+    }
+    </div>
+    "#
+);
