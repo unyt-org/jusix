@@ -51,6 +51,14 @@ impl Visit for VariableCollector {
     }
 }
 
+
+const DOLLAR_METHODS: [&'static str; 3] = [
+    "map",
+    "filter",
+    "reduce",
+];
+
+
 pub struct TransformVisitor;
 
 impl TransformVisitor {
@@ -103,6 +111,32 @@ impl TransformVisitor {
 
             // convert array.map(() => {}) to array.$.map(() => {})
             // TODO
+            Expr::Call(c)
+                if c.callee.is_expr()
+                    && c.callee.as_expr().unwrap().is_member()
+                    // any DOLLAR_METHODS
+                    && DOLLAR_METHODS.iter().any(|m| c.callee.as_expr().unwrap().as_member().unwrap().prop.is_ident_with(m)) =>
+                    // && (c.callee.as_expr().unwrap().as_member().unwrap().prop.is_ident_with("map")) =>
+            {
+                let member = c.callee.as_expr().unwrap().as_member().unwrap();
+                let obj = member.obj.clone();
+                let prop = member.prop.clone();
+
+                Box::new(Expr::Call(CallExpr {
+                    span: c.span,
+                    callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                        span: DUMMY_SP,
+                        obj: obj,
+                        prop: MemberProp::Ident(IdentName::from(
+                            format!("$.{}", prop.as_ident().unwrap().sym).to_string()
+                        )),
+                    }))),
+                    args: c.args.clone(),
+                    type_args: Take::dummy(),
+                    ctxt: Default::default(),
+                }))
+            }
+
 
             // already has an always() or $$() wrapper
             Expr::Call(c)

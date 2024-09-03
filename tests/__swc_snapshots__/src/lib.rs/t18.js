@@ -1,5 +1,5 @@
 <div>
-        {always(()=>array.map((item)=>{
-        return <span>{item}</span>;
-    }))}
+        {array.$.map((item)=>{
+    return <span>{item}</span>;
+})}
     </div>;
