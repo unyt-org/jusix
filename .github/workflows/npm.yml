@@ -1,6 +1,8 @@
 name: Publish Package to npmjs
 on:
-  release:
+  push:
+    branches:
+      - wasm-plugin
 jobs:
   build:
     runs-on: ubuntu-latest
