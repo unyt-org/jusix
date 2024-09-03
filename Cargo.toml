@@ -2,6 +2,9 @@
 name = "jusix"
 version = "0.1.4"
 edition = "2021"
+description = "An SWC plugin that enables embedded JSX reactivity and $() shortcut function for UIX"
+license = "MIT"
+repository = "https://github.com/unyt-org/jusix.git"
 
 [lib]
 crate-type = ["cdylib"]
