@@ -5,10 +5,10 @@ use visitor::TransformVisitor;
 
 pub mod visitor;
 
-// #[plugin_transform]
-// pub fn process_transform(program: Program, _metadata: TransformPluginProgramMetadata) -> Program {
-//     program.fold_with(&mut TransformVisitor)
-// }
+#[plugin_transform]
+pub fn process_transform(program: Program, _metadata: TransformPluginProgramMetadata) -> Program {
+    program.fold_with(&mut TransformVisitor)
+}
 
 // An example to test plugin transform.
 // Recommended strategy to test plugin's transform is verify
