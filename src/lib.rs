@@ -217,13 +217,27 @@ test!(
     t19,
     r#"<div>
         {
+            array.map((item) => item)
+        }
+        {
+            array.map((item) => item * x)
+        }
+         {
             array.map((item) => {
-                return <span>{item * 2}</span>
+                return item * x;    
             })
         }
         {
+            array.map((item) => {
+                return <span>{item * x}</span>
+            })
+        }
+        {
+            array.map((item) => <div>{item * x}</div>)
+        }
+        {
             array.filter((item) => {
-                return <span>{item * 2}</span>
+                return <span>{item * x}</span>
             })
         }
          {
@@ -232,5 +246,108 @@ test!(
             })
         }
     </div>
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t20,
+    r#"<input value={x[0]}/>"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t21,
+    r#"<input value={x.y.z[0]}/>"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t22,
+    r#"const x = arr.map(a => a*2)"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t23,
+    r#"const x = $(arr.map(a => a*2))"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t24,
+    r#"const x = $(() => x + 1)"#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t25,
+    r#"const x = $(x.$.y)"#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t26,
+    r#"
+    const x = <div>{x+1}</div>;
+    const x = $(<div>{x+1}</div>);
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t27,
+    r#"
+    const x = $([
+        1,2,y+1
+    ])
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t28,
+    r#"
+    const x = $([
+        1,2,3
+    ])
     "#
 );

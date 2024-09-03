@@ -1,1 +1,1 @@
-<button value:frontend={always(()=>x + 1)}/>;
+<button value:frontend={_$(()=>x + 1)}/>;

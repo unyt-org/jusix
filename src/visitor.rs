@@ -1,5 +1,5 @@
-use swc_core::ecma::ast::{IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp};
-use swc_core::ecma::visit::VisitWith;
+use swc_core::ecma::ast::{FnExpr, IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp};
+use swc_core::ecma::visit::{FoldWith, VisitWith};
 use swc_core::{
     atoms::Atom,
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
@@ -91,7 +91,10 @@ impl TransformVisitor {
                                 Default::default(),
                             )))),
                             args: vec![
-                                m.obj.clone().into(),
+                                ExprOrSpread {
+                                    expr: self.transform_expr_reactive(m.obj.clone()),
+                                    spread: None
+                                },
                                 // convert prop to string
                                 match &m.prop {
                                     MemberProp::Ident(_) => Expr::Lit(Lit::Str(Str {
@@ -131,7 +134,31 @@ impl TransformVisitor {
                             format!("$.{}", prop.as_ident().unwrap().sym).to_string()
                         )),
                     }))),
-                    args: c.args.clone(),
+                    // transform first arg if it's a function, keep others
+                    args: c.args.clone().into_iter().map(|a| {
+                        match a {
+                            ExprOrSpread {
+                                expr: e,
+                                spread: None,
+                            } => match e.unwrap_parens() {
+                                Expr::Arrow(a1) => ExprOrSpread {
+                                    expr: {
+                                        let mut a2 = a1.clone();
+                                        a2.body = Box::new(
+                                           *a2.body.fold_with(self)
+                                        );
+                                        Box::new(Expr::Arrow(a2))
+                                    },
+                                    spread: None,
+                                },
+                                _ => ExprOrSpread {
+                                    expr: e,
+                                    spread: None,
+                                }
+                            },
+                            _ => a
+                        }
+                    }).collect(),
                     type_args: Take::dummy(),
                     ctxt: Default::default(),
                 }))
@@ -141,7 +168,7 @@ impl TransformVisitor {
             // already has an always() or $$() wrapper
             Expr::Call(c)
                 if c.callee.is_expr()
-                    && (c.callee.as_expr().unwrap().is_ident_ref_to("always")
+                    && (c.callee.as_expr().unwrap().is_ident_ref_to("_$")
                         || c.callee.as_expr().unwrap().is_ident_ref_to("$$")) =>
             {
                 e
@@ -158,7 +185,7 @@ impl TransformVisitor {
             _ => Box::new(Expr::Call(CallExpr {
                 span: DUMMY_SP,
                 callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
-                    "always".into(),
+                    "_$".into(),
                     DUMMY_SP,
                     Default::default(),
                 )))),
@@ -299,33 +326,45 @@ impl Fold for TransformVisitor {
                                     DUMMY_SP,
                                     call.ctxt,
                                 )))),
-                                args: vec![arg.into()],
+                                args: vec![arg.fold_with(self).into()],
                                 type_args: Take::dummy(),
                                 ctxt: call.ctxt,
                             },
 
                             // default: wrap in always
-                            _ => CallExpr {
-                                span: DUMMY_SP,
-                                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
-                                    "always".into(),
-                                    DUMMY_SP,
-                                    call.ctxt,
-                                )))),
-                                args: vec![Expr::Arrow(ArrowExpr {
-                                    span: DUMMY_SP,
-                                    params: Take::dummy(),
-                                    body: Box::new(BlockStmtOrExpr::Expr(arg)),
-                                    is_async: false,
-                                    is_generator: false,
-                                    type_params: Take::dummy(),
-                                    return_type: Take::dummy(),
-                                    ctxt: call.ctxt,
-                                })
-                                .into()],
-                                type_args: Take::dummy(),
-                                ctxt: call.ctxt,
-                            },
+                            _ => {
+                                let reactive = self.transform_expr_reactive(arg.clone());
+                                match reactive.unwrap_parens() {
+                                    Expr::Call(c) => c.clone(),
+                                    // transform_expr_reactive returns a CallExpr in all cases except for Expr::Arrow(_) | Expr::Fn
+                                    _ => CallExpr {
+                                        span: DUMMY_SP,
+                                        callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                                            "_$".into(),
+                                            DUMMY_SP,
+                                            call.ctxt,
+                                        )))),
+                                        args: vec![
+                                            match arg.unwrap_parens() {
+                                                Expr::Arrow(_) | Expr::Fn(_) => arg.into(),
+                                                _ => Expr::Arrow(ArrowExpr {
+                                                    span: DUMMY_SP,
+                                                    params: Take::dummy(),
+                                                    body: Box::new(BlockStmtOrExpr::Expr(arg)),
+                                                    is_async: false,
+                                                    is_generator: false,
+                                                    type_params: Take::dummy(),
+                                                    return_type: Take::dummy(),
+                                                    ctxt: call.ctxt,
+                                                })
+                                                .into(),
+                                            }
+                                        ],
+                                        type_args: Take::dummy(),
+                                        ctxt: call.ctxt,
+                                    }
+                                }
+                            }
                         };
                     }
 
@@ -343,7 +382,7 @@ impl Fold for TransformVisitor {
         // if n.callee.is_expr() && n.callee.expect_expr().expect_ident().sym.eq_ignore_ascii_case("$") {
         //         return CallExpr {
         //             span: DUMMY_SP,
-        //             callee: Callee::Expr(Box::new(Expr::Ident(Ident::new("always".into(), DUMMY_SP)))),
+        //             callee: Callee::Expr(Box::new(Expr::Ident(Ident::new("_$".into(), DUMMY_SP)))),
         //             args: vec![Expr::Arrow(ArrowExpr {
         //                 span: DUMMY_SP,
         //                 params: Take::dummy(),

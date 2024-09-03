@@ -1,5 +1,5 @@
 <div>
-        <span>{always(()=>x + 1)}</span>
-        <span>{always(()=>y + 1)}</span>
-        <span>X + Y = {always(()=>x + y)}</span>
+        <span>{_$(()=>x + 1)}</span>
+        <span>{_$(()=>y + 1)}</span>
+        <span>X + Y = {_$(()=>x + y)}</span>
     </div>;
