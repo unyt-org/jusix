@@ -1,6 +1,6 @@
 name: Publish Package to npmjs
 on:
-  push:
+  release:
 jobs:
   build:
     runs-on: ubuntu-latest
