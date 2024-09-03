@@ -1,6 +1,6 @@
 {
     "name": "jusix",
-    "version": "0.1.7",
+    "version": "0.1.6",
     "description": "",
     "author": "",
     "license": "ISC",
@@ -9,7 +9,8 @@
     ],
     "main": "target/wasm32-wasi/release/jusix.wasm",
     "scripts": {
-        "generateWasm": "cargo build-wasi --release && cp target/wasm32-wasi/release/jusix.wasm ."
+        "prepublishOnly": "cargo build-wasi --release",
+        "prepack": "cp target/wasm32-wasi/release/jusix.wasm ."
     },
     "files": [],
     "preferUnplugged": true,
