@@ -471,18 +471,18 @@ impl Fold for TransformVisitor {
             JSXElementChild::JSXElement(e) => JSXElementChild::JSXElement(
                 Box::new(JSXElement {
                     span: DUMMY_SP,
-                    opening: e.opening,
+                    opening: e.opening.fold_with(self),
                     children: self.fold_jsx_element_childs(e.children),
                     closing: e.closing,
                 })
             ),
-            _ => child,
+            _ => child
         }
     }
 
     fn fold_jsx_element_childs(&mut self, node: Vec<JSXElementChild>) -> Vec<JSXElementChild> {
         node.into_iter()
-            .map(|child| self.fold_jsx_element_child(child))
+            .map(|child| child.fold_with(self))
             .collect()
     }
 

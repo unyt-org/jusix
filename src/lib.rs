@@ -369,3 +369,24 @@ test!(
     "#
 );
 
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t30,
+    r#"
+    const x = <div>
+		<input value={count + '2'}/>
+        <div>{x + y}</div>
+        <div>
+            <div id={ x + y}>
+                <span class="static">{ x + y }</span>
+            </div>
+        </div>
+	</div>
+    "#
+);
+
