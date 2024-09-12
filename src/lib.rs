@@ -390,3 +390,61 @@ test!(
     "#
 );
 
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t31,
+    r#"
+    function x () {
+        const y = $(42)
+    }
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t32,
+    r#"
+    call(function () {
+        const y = $(42)
+    })
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t33,
+    r#"
+    () => {
+        const y = $(42)
+        const z = <div>{y+1}</div>
+    }
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t34,
+    r#"
+    template(() => {
+        const y = $(42)
+        const z = <div>{y+1}</div>
+    })
+    "#
+);

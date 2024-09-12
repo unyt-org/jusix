@@ -372,10 +372,10 @@ impl Fold for TransformVisitor {
                         return TransformVisitor::transform_transferable_call_expr(&call);
                     }
 
-                    _ => call,
+                    _ => call.fold_children_with(self),
                 };
             }
-            _ => call,
+            _ => call.fold_children_with(self),
         };
 
         // if n.callee.is_expr() && n.callee.expect_expr().expect_ident().sym.eq_ignore_ascii_case("$") {
