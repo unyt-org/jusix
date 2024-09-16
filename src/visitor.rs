@@ -175,7 +175,7 @@ impl TransformVisitor {
 
             // convert redundant $()
             Expr::Call(c)
-                if c.callee.is_expr() && (c.callee.as_expr().unwrap().is_ident_ref_to("$")) =>
+                if c.callee.is_expr() && (c.callee.as_expr().unwrap().is_ident_ref_to("always")) =>
             {
                 Box::new(Expr::Call(self.fold_call_expr(c.clone())))
             }
@@ -315,9 +315,9 @@ impl Fold for TransformVisitor {
                 let arg = TransformVisitor::get_first_arg(&call);
 
                 return match e.unwrap_parens() {
-                    Expr::Ident(i) if i.sym.eq_ignore_ascii_case("$") => {
+                    Expr::Ident(i) if i.sym.eq_ignore_ascii_case("always") => {
                         return match arg.unwrap_parens() {
-                            // $$ ()
+                            // constant - wrap in $$ ()
                             Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) => CallExpr {
                                 span: DUMMY_SP,
                                 callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
@@ -329,6 +329,9 @@ impl Fold for TransformVisitor {
                                 type_args: Take::dummy(),
                                 ctxt: call.ctxt,
                             },
+
+                            // callback wrapper, no transformation needed
+                            Expr::Fn(_) => call,
 
                             // default: wrap in always
                             _ => {
