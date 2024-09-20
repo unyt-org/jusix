@@ -1,1 +1,1 @@
-const x = arr.$.map((a)=>a * 2);
+const x = _$method(arr, "map", (a)=>a * 2);

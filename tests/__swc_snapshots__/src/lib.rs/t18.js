@@ -1,5 +1,5 @@
 <div>
-        {array.$.map((item)=>{
+        {_$method(array, "map", (item)=>{
     return <span>{item}</span>;
 })}
     </div>;

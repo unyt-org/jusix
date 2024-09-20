@@ -1,5 +1,4 @@
 import Component1, { Car } from "common/Component1.tsx";
-import { ObjectRef, Ref } from "datex-core-legacy/runtime/pointers.ts";
 
 export default {
 
@@ -63,6 +62,39 @@ export default {
 
 	},
 
-	'/test3': () => <input type="number" value={Promise.resolve('xy')}/>
+	'/test3': () => <input type="number" value={Promise.resolve('123')}/>,
+
+	'/test4': () => {
+		const arr = $$([0]);
+		setInterval(() => {
+			arr.push(Math.random());
+		}, 1000);
+
+		return <div>
+			<ul>
+				{
+					[1,2,3].map((i) => <li>{i}</li>)
+				}
+			</ul>
+			<ul>
+				{
+					arr.map((i) => <li>{i}</li>)
+				}
+			</ul>
+		</div>
+	},
+
+	'/test5': () => {
+		const x = $(0);
+		const y = 0;
+		setInterval(() => {
+			x.val++;
+		});
+		return <main>
+			<div>{x + 1}</div>
+			<div>{y + 1}</div>
+		</main>
+
+	}
 
 }

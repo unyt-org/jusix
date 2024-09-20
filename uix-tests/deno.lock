@@ -3,7 +3,7 @@
   "packages": {
     "specifiers": {
       "npm:@swc/core@1.7.23": "npm:@swc/core@1.7.23",
-      "npm:source-map": "npm:source-map@0.6.1",
+      "npm:source-map": "npm:source-map@0.7.4",
       "npm:terser": "npm:terser@5.33.0"
     },
     "npm": {
@@ -131,6 +131,10 @@
         "integrity": "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==",
         "dependencies": {}
       },
+      "source-map@0.7.4": {
+        "integrity": "sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==",
+        "dependencies": {}
+      },
       "terser@5.33.0": {
         "integrity": "sha512-JuPVaB7s1gdFKPKTelwUyRq5Sid2A3Gko2S0PncwdBq7kN9Ti9HPWDQ06MPsEDGsZeVESjKEnyGy68quBk1w6g==",
         "dependencies": {
@@ -147,6 +151,7 @@
   },
   "remote": {
     "https://cdn.jsdelivr.net/gh/speed-highlight/core/dist/index.js": "3f06bcb851f0ad78de4ab1886611d1253a57d875c287a93ae92efa80c5e7593b",
+    "https://cdn.jsdelivr.net/gh/speed-highlight/core/dist/languages/ts.js": "d9e8671e58793ad1b57aada3bb06713d0eae9a71d0a330576f1ee2e2487f8578",
     "https://deno.land/std@0.131.0/_util/assert.ts": "e94f2eb37cebd7f199952e242c77654e43333c1ac4c5c700e929ea3aa5489f74",
     "https://deno.land/std@0.131.0/_util/os.ts": "49b92edea1e82ba295ec946de8ffd956ed123e2948d9bd1d3e901b04e4307617",
     "https://deno.land/std@0.131.0/path/_constants.ts": "df1db3ffa6dd6d1252cc9617e5d72165cd2483df90e93833e13580687b6083c3",
@@ -374,7 +379,7 @@
     "https://dev.cdn.unyt.org/uix1/src/session/backend.ts": "731ab75fbdd9ff7d092db45ea8984af9b1130baa56fdcd14607a0006b083437b",
     "https://dev.cdn.unyt.org/uix1/src/session/cookies.ts": "3f025ea5b5e4449738f446cf3dc1382ab6363f023f2a0f493e3cb5a96ef0202f",
     "https://dev.cdn.unyt.org/uix1/src/session/frontend.ts": "af02d5ba0203c9872d7847228ab67fd23e3867a61b45ea6e2b7049883e69205c",
-    "https://dev.cdn.unyt.org/uix1/src/session/shared-data.ts": "7be2d96ebfaf9cca712f4910e2285aa5e1d459d3be4edc3e7011dffb2b8cd6ce",
+    "https://dev.cdn.unyt.org/uix1/src/session/shared-data.ts": "2da448634e1854295d37d2a6e408fcade9ab8f8393f6679750f9cf61da620045",
     "https://dev.cdn.unyt.org/uix1/src/standalone/bound_content_properties.ts": "ea3da161ac4340b474ec35d6b07fe1afc19bac773dd178a7863a14f324cb6c44",
     "https://dev.cdn.unyt.org/uix1/src/standalone/get_prototype_properties.ts": "2e8719a3c971560a07cafdd73b37da92aed81068145afdaf82b422f4586d1165",
     "https://dev.cdn.unyt.org/uix1/src/standalone/scroll_container.ts": "4ccc46a28679865af05f8a56d14ecc81df54a7c6ef8404f3120a208544fed0a0",
@@ -385,7 +390,7 @@
     "https://dev.cdn.unyt.org/uix1/src/themes/uix-light.ts": "035fd32ee342f9ecd30050157bfe7e218cb864630481ed24aa9ef92360bad236",
     "https://dev.cdn.unyt.org/uix1/src/uix-dom/attributes.ts": "e48c90bd8319b2024b131fed7492494a3b84e8e0c78bdac4db23bc65da1a0cea",
     "https://dev.cdn.unyt.org/uix1/src/uix-dom/datex-bindings/dom-datex-types.ts": "ff09d962d28d4e19c57f49c9de907c2073a9eebc4b949b8e27aaaf731b04f494",
-    "https://dev.cdn.unyt.org/uix1/src/uix-dom/datex-bindings/dom-utils.ts": "93186745e970310a845565c9ceabb50775fa5cb32def643c167913042d32c67f",
+    "https://dev.cdn.unyt.org/uix1/src/uix-dom/datex-bindings/dom-utils.ts": "1bb32ef2adc939a70a4768f9f7a43cf2c5587f44391baff8fb299bcafdd1e778",
     "https://dev.cdn.unyt.org/uix1/src/uix-dom/datex-bindings/mod.ts": "2c247ce4014d368b546547e121ac1f4625194e06639467f8a7b8010b84ab2ca5",
     "https://dev.cdn.unyt.org/uix1/src/uix-dom/datex-bindings/transform-wrapper.ts": "3a3608c0b44631c76480f0bb17950fa678047e9e81076593d0e0629367422c1d",
     "https://dev.cdn.unyt.org/uix1/src/uix-dom/datex-bindings/type-definitions.ts": "bf41cf7475a5016a05daac4263ab6e753eea51a2f5791264a54d973694f343aa",
@@ -466,8 +471,8 @@
     "https://dev.cdn.unyt.org/unyt_core/compiler/unit_codes.ts": "bc9b15229cab9913f9b01af749433e681dc2b5e0df552c109d9c4f17e66eb6e9",
     "https://dev.cdn.unyt.org/unyt_core/datex.ts": "71bb6d0b4d50df4678bc156480f58cf0b65389199ab24d8c4d6aabfb1e2e2b2f",
     "https://dev.cdn.unyt.org/unyt_core/datex_all.ts": "88c70810290283c8aa6d898d30629eb864acebb9be72e7f92ce9317ae845817c",
-    "https://dev.cdn.unyt.org/unyt_core/datex_short.ts": "41e1b494638c6a8f1891578e41e45829b0e2511f4ae4caa7f90508122fb31489",
-    "https://dev.cdn.unyt.org/unyt_core/functions.ts": "2caa0b59c691d75a6264f46388f0b2bca0412023fe3c93a33719c3389b36dc0b",
+    "https://dev.cdn.unyt.org/unyt_core/datex_short.ts": "5b21ffda24f15d5aee14871aa40e98f226e37c1fb46bcf94374aa9a85b077c8a",
+    "https://dev.cdn.unyt.org/unyt_core/functions.ts": "49748406cc8d531eb9a4a450581ad5a2a49ef451704a4782e918459af01da98d",
     "https://dev.cdn.unyt.org/unyt_core/init.ts": "428ffa715c1464f7dfbcfc0b086720161e1930ade9f90ee5ad66beb8e435d24e",
     "https://dev.cdn.unyt.org/unyt_core/js_adapter/decorators.ts": "a5a8778a82d8f3b17ed27d697c8092d971a98806bbe811e0fbcd3a5914e995e3",
     "https://dev.cdn.unyt.org/unyt_core/js_adapter/js_class_adapter.ts": "28ff29e2753d8b434931a920edfccee0a61c2f4e9416bfe828ec77d2f2ec5e0a",
@@ -517,7 +522,7 @@
     "https://dev.cdn.unyt.org/unyt_core/runtime/js_interface.ts": "44d1b3882b802fbb13f287366dd3d6b1615665ac9f9301b495b61a47a2b7c7b7",
     "https://dev.cdn.unyt.org/unyt_core/runtime/lazy-pointer.ts": "8649bf4d88eb56949b3db1d1ed33e36e22946e2d0d8ed8a8dfe1ba4ea56a0365",
     "https://dev.cdn.unyt.org/unyt_core/runtime/performance_measure.ts": "ec6a72315c9e0924abbb9c9667edd1dfc28245d8b2b743332a8f0997f2fc6b4d",
-    "https://dev.cdn.unyt.org/unyt_core/runtime/pointers.ts": "9ea9395b59163b5166cef5b73e62b7e8be60f5bd032673aa3586a74f7b6d0de3",
+    "https://dev.cdn.unyt.org/unyt_core/runtime/pointers.ts": "beb2c8cf4d577014a8b052f3fe5a76a001ea556adb8ee744f484298fa072f774",
     "https://dev.cdn.unyt.org/unyt_core/runtime/reset.ts": "68006e941ec1778933f29b1cc3a0b0dc79d5bbc503f1b40162f12f040a7d7612",
     "https://dev.cdn.unyt.org/unyt_core/runtime/runtime.ts": "65c11a7193f3878391d7043f64d4fcdb044f51c581bc50366ab5be7929b21369",
     "https://dev.cdn.unyt.org/unyt_core/storage/storage-locations/deno-kv.ts": "c457114a9fda19acb73e4e7f9f6e92abec9ecc30b255e39ca487233c6555acf7",

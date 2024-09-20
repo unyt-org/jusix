@@ -111,7 +111,7 @@ impl TransformVisitor {
                 )
             ),
 
-            // convert array.map(() => {}) to array.$.map(() => {})
+            // convert array.map(() => {}) to _$method(array, 'map', (() => {})
             // TODO
             Expr::Call(c)
                 if c.callee.is_expr()
@@ -124,40 +124,67 @@ impl TransformVisitor {
                 let obj = member.obj.clone();
                 let prop = member.prop.clone();
 
-                Box::new(Expr::Call(CallExpr {
-                    span: c.span,
-                    callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
-                        span: DUMMY_SP,
-                        obj: obj,
-                        prop: MemberProp::Ident(IdentName::from(
-                            format!("$.{}", prop.as_ident().unwrap().sym).to_string()
-                        )),
-                    }))),
-                    // transform first arg if it's a function, keep others
-                    args: c.args.clone().into_iter().map(|a| {
-                        match a {
-                            ExprOrSpread {
+                let mut args: Vec::<ExprOrSpread> = vec![
+                    ExprOrSpread {
+                        expr: obj,
+                        spread: None
+                    },
+                    ExprOrSpread {
+                        expr: Box::new(Expr::Lit(Lit::Str(Str {
+                            span: DUMMY_SP,
+                            value: prop.as_ident().unwrap().sym.clone().into(),
+                            raw: None
+                        }))),
+                        spread: None
+                    }
+                ];
+
+                for arg in c.args.clone().into_iter().map(|a| {
+                    match a {
+                        ExprOrSpread {
+                            expr: e,
+                            spread: None,
+                        } => match e.unwrap_parens() {
+                            Expr::Arrow(a1) => ExprOrSpread {
+                                expr: {
+                                    let mut a2 = a1.clone();
+                                    a2.body = Box::new(
+                                       *a2.body.fold_with(self)
+                                    );
+                                    Box::new(Expr::Arrow(a2))
+                                },
+                                spread: None,
+                            },
+                            _ => ExprOrSpread {
                                 expr: e,
                                 spread: None,
-                            } => match e.unwrap_parens() {
-                                Expr::Arrow(a1) => ExprOrSpread {
-                                    expr: {
-                                        let mut a2 = a1.clone();
-                                        a2.body = Box::new(
-                                           *a2.body.fold_with(self)
-                                        );
-                                        Box::new(Expr::Arrow(a2))
-                                    },
-                                    spread: None,
-                                },
-                                _ => ExprOrSpread {
-                                    expr: e,
-                                    spread: None,
-                                }
-                            },
-                            _ => a
-                        }
-                    }).collect(),
+                            }
+                        },
+                        _ => a
+                    }
+                }) {
+                    args.push(arg);
+                }
+
+
+                Box::new(Expr::Call(CallExpr {
+                    span: c.span,
+                    // callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                    //     span: DUMMY_SP,
+                    //     obj: obj,
+                    //     prop: MemberProp::Ident(IdentName::from(
+                    //         format!("$.{}", prop.as_ident().unwrap().sym).to_string()
+                    //     )),
+                    // }))),
+                    callee: Callee::Expr(Box::new(Expr::Ident(
+                        Ident::new(
+                            "_$method".into(),
+                            DUMMY_SP,
+                            Default::default(),
+                        )
+                    ))),
+                    // transform first arg if it's a function, keep others
+                    args,
                     type_args: Take::dummy(),
                     ctxt: Default::default(),
                 }))
