@@ -448,3 +448,20 @@ test!(
     })
     "#
 );
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t35,
+    r#"
+    <div>
+        <span>{x + 1}</span>
+        <span>{x}</span>
+        <span>{1}</span>
+        <span>inline&nbsp;text</span>
+    </div>
+    "#
+);
