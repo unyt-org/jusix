@@ -93,8 +93,8 @@ export default {
 		return <main>
 			<div>{x + 1}</div>
 			<div>{y + 1}</div>
+			<div>{2}</div>
 		</main>
-
 	}
 
 }

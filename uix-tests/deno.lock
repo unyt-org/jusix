@@ -3,7 +3,7 @@
   "packages": {
     "specifiers": {
       "npm:@swc/core@1.7.23": "npm:@swc/core@1.7.23",
-      "npm:source-map": "npm:source-map@0.7.4",
+      "npm:source-map": "npm:source-map@0.6.1",
       "npm:terser": "npm:terser@5.33.0"
     },
     "npm": {
@@ -131,10 +131,6 @@
         "integrity": "sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==",
         "dependencies": {}
       },
-      "source-map@0.7.4": {
-        "integrity": "sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==",
-        "dependencies": {}
-      },
       "terser@5.33.0": {
         "integrity": "sha512-JuPVaB7s1gdFKPKTelwUyRq5Sid2A3Gko2S0PncwdBq7kN9Ti9HPWDQ06MPsEDGsZeVESjKEnyGy68quBk1w6g==",
         "dependencies": {
@@ -151,7 +147,6 @@
   },
   "remote": {
     "https://cdn.jsdelivr.net/gh/speed-highlight/core/dist/index.js": "3f06bcb851f0ad78de4ab1886611d1253a57d875c287a93ae92efa80c5e7593b",
-    "https://cdn.jsdelivr.net/gh/speed-highlight/core/dist/languages/ts.js": "d9e8671e58793ad1b57aada3bb06713d0eae9a71d0a330576f1ee2e2487f8578",
     "https://deno.land/std@0.131.0/_util/assert.ts": "e94f2eb37cebd7f199952e242c77654e43333c1ac4c5c700e929ea3aa5489f74",
     "https://deno.land/std@0.131.0/_util/os.ts": "49b92edea1e82ba295ec946de8ffd956ed123e2948d9bd1d3e901b04e4307617",
     "https://deno.land/std@0.131.0/path/_constants.ts": "df1db3ffa6dd6d1252cc9617e5d72165cd2483df90e93833e13580687b6083c3",
