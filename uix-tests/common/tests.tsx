@@ -1,18 +1,20 @@
 import Component1, { Car } from "common/Component1.tsx";
+import { BaseComponent } from "common/BaseComponent.tsx";
+import ChildComponent from "common/ChildComponent.tsx";
 
 export default {
 
 	'/test1': () => <div>Test 1</div>,
 	'/test2': () => {
-		const value = $(0);
+		const value = $$(0);
 
-		const data = always({a: value.val});
+		const data = always(() => ({a: value.val}));
 
 		console.log(data);
 
-		const data2 = $({a: 0});
+		const data2 = $$({a: 0});
 		effect(() => {
-			console.log("value = " + value)
+			console.log("value:", value.val)
 			data2.a = value;
 		});
 
@@ -44,7 +46,7 @@ export default {
 				}}
 			/>
 			
-			<input class={['3',5,true]} type="number" value={'xy'}/>
+			<input class={({s:true})} type="number" value={'xy'}/>
 			<input type={"button"} value={$("fe")} style={$$({color: 'red', x: [3]})}/>
 
 			<x-custom-element x="234" y={5}>x</x-custom-element>
@@ -58,8 +60,6 @@ export default {
 				year: 2012
 			})}/>
 		</div>
-
-
 	},
 
 	'/test3': () => <input type="number" value={Promise.resolve('123')}/>,
@@ -95,6 +95,76 @@ export default {
 			<div>{y + 1}</div>
 			<div>{2}</div>
 		</main>
-	}
+	},
+
+	'/test6': () => {
+		const value = $(0);
+
+		const data = $({a: 0});
+		console.log(data);
+
+		effect(() => {
+			console.log("value = ", value.val)
+			data.a = value.val;
+		});
+
+		return <div>
+			<input
+				value={value}
+				type="text"
+			/>
+			
+			<Component1 number1={value} number2={5} data={data}/>
+
+		</div>
+	},
+
+
+	'/test7': () => {
+
+		const x = $(0);
+
+		effect(() => {
+			console.log("x",x.val)
+			x.val = x + 1;
+		});
+		
+		return <div>
+			<input value={x} type="number"/>
+			X = {x}
+		</div>
+	},
+
+	'/test8': () => {
+
+		const x = $(0);
+		const y = $(0);
+
+		effect(() => {
+			y.val = x + 1;
+		});
+		
+		return <div>
+			<input value={x} type="number"/>
+			<div>X = { x }</div>
+			<div>X + 1 = { y }</div>
+			<div>X + 2 = { x + 2 }</div>
+		</div>
+	},
+
+	'/test9': () => {
+		const x = 0;
+		const y = $$(1);
+		return <div>
+			<input value={y}/>
+			<Component1 class="xyxyx" number1={y} number2={x + 2} data={{a:42}}/>
+		</div>
+	},
+
+	'/test10': () => <main>
+		<BaseComponent title="Base" color="red"/>
+		<ChildComponent title="Child" color={"orange"} counter={$$(3)}/>
+	</main>
+
 
 }
