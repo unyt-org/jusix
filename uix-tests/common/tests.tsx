@@ -4,6 +4,8 @@ import ChildComponent from "common/ChildComponent.tsx";
 
 export default {
 
+	'/datex-tests': () => import("./datex-tests.tsx"),
+
 	'/test1': () => <div>Test 1</div>,
 	'/test2': () => {
 		const value = $$(0);
@@ -47,7 +49,7 @@ export default {
 			/>
 			
 			<input class={({s:true})} type="number" value={'xy'}/>
-			<input type={"button"} value={$("fe")} style={$$({color: 'red', x: [3]})}/>
+			<input type={"button"} value={$("fe")} style={$$({color: 'red', x: [3]})} onclick:frontend={() => alert("Click!")}/>
 
 			<x-custom-element x="234" y={5}>x</x-custom-element>
 			<Component1 number1={value} number2={value} data={data}/>
@@ -164,7 +166,71 @@ export default {
 	'/test10': () => <main>
 		<BaseComponent title="Base" color="red"/>
 		<ChildComponent title="Child" color={"orange"} counter={$$(3)}/>
-	</main>
+	</main>,
 
+	'/test11': () => {
+		const radius = $(0);
+
+		return (
+			<div>
+				<h1>Circle Area Calculator</h1>
+				<input step="0.01" type="number" placeholder="Radius" value={radius}/>
+				<p>Area = { Math.PI * radius ** 2 }</p>
+			</div>
+		);
+	},
+
+	'/test12': () => {
+		const showDialog = $$(false);
+		globalThis.showDialog = showDialog;
+		return <div>
+			<div>My Div</div>
+			{val(showDialog) ? <div id="dialog">My Dialog</div> : null}
+		</div>;
+	},
+
+	'/test13': () => {
+		const showDialog = $$(false);
+		globalThis.showDialog = showDialog;
+		return <div>
+			<div>My Div</div>
+			{val(showDialog) && <div id="dialog">My Dialog</div>}
+		</div>;
+	},
+
+	'/test14': () => {
+		const showDialog = $$(true);
+		globalThis.showDialog = showDialog;
+		return <div>
+			<div>My Div</div>
+			{val(showDialog) && <div id="dialog">My Dialog</div>}
+		</div>;
+	},
+
+	'/test15': () => {
+		const showDialog = $$(false);
+		globalThis.showDialog = showDialog;
+		return <div>
+			<div>My Div</div>
+			{val(showDialog) ? <div id="dialog">My Dialog</div> : "no dialog!"}
+		</div>;
+	},
+
+	'/test16': () => {
+		const showDialog = $$(false);
+		globalThis.showDialog = showDialog;
+		return <div>
+			<div>My Div</div>
+			{val(showDialog) ? <div id="dialog">My Dialog</div> : [1,2,3]}
+		</div>;
+	},
+
+	'/test17': () => <input 
+		type="button"
+		value="Hello"
+		onclick:frontend={() => {
+			alert("Hello!");
+		}}
+	/>,
 
 }
