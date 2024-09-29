@@ -1,4 +1,1 @@
-<button onclick:frontend={()=>{
-    use(console, x);
-    return console.log(x);
-}}/>;
+<button onclick:frontend={()=>console.log(x)}/>;

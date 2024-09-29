@@ -465,3 +465,19 @@ test!(
     </div>
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t36,
+    r#"
+    let x = 10;
+    run(() => {
+        console.log(x + 1);
+    })
+    "#
+);

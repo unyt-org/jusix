@@ -3,12 +3,9 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt,
-            FnDecl, Ident, JSXEmptyExpr, JSXExpr, JSXExprContainer, Lit, Null, ReturnStmt, Stmt,
-            Str, VarDecl,
-            IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp
+            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberExpr, MemberProp, Null, ReturnStmt, SpanExt, Stmt, Str, VarDecl
         },
-        visit::{Fold, Visit, FoldWith, VisitWith},
+        visit::{Fold, FoldWith, Visit, VisitWith},
     },
 };
 
@@ -26,6 +23,7 @@ impl VariableCollector {
 
 impl Visit for VariableCollector {
     fn visit_ident(&mut self, ident: &Ident) {
+    
         // add variable to list if not already present
         if !self.variables.contains(&ident.sym.to_string()) {
             self.variables.push(ident.sym.to_string());
@@ -233,6 +231,8 @@ impl TransformVisitor {
     }
 
     fn transform_transferable_closure(arrow: &ArrowExpr, ctxt: SyntaxContext) -> ArrowExpr {
+        // TODO: enable?
+        return arrow.clone();
         // find all variables used in the arrow function body
         let mut collector = VariableCollector::new();
         arrow.body.visit_with(&mut collector);
@@ -304,6 +304,8 @@ impl TransformVisitor {
     }
 
     fn transform_transferable_call_expr(call: &CallExpr) -> CallExpr {
+        // TODO: enable?
+        return call.clone();
         let arg = TransformVisitor::get_first_arg(call);
 
         match arg.unwrap_parens() {

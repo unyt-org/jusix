@@ -1,4 +1,1 @@
-<button value:frontend={always(()=>{
-    use(x);
-    return x + 1;
-})}/>;
+<button value:frontend={always(()=>x + 1)}/>;
