@@ -181,7 +181,7 @@ impl TransformVisitor {
                 )
             ),
 
-            // convert array.map(() => {}) to array.$.map(() => {})
+            // convert array.map(() => {}) to _$method(array, 'map', (() => {})
             // TODO
             Expr::Call(c)
                 if c.callee.is_expr()
@@ -194,40 +194,67 @@ impl TransformVisitor {
                 let obj = member.obj.clone();
                 let prop = member.prop.clone();
 
-                Box::new(Expr::Call(CallExpr {
-                    span: c.span,
-                    callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
-                        span: DUMMY_SP,
-                        obj: obj,
-                        prop: MemberProp::Ident(IdentName::from(
-                            format!("$.{}", prop.as_ident().unwrap().sym).to_string()
-                        )),
-                    }))),
-                    // transform first arg if it's a function, keep others
-                    args: c.args.clone().into_iter().map(|a| {
-                        match a {
-                            ExprOrSpread {
+                let mut args: Vec::<ExprOrSpread> = vec![
+                    ExprOrSpread {
+                        expr: obj,
+                        spread: None
+                    },
+                    ExprOrSpread {
+                        expr: Box::new(Expr::Lit(Lit::Str(Str {
+                            span: DUMMY_SP,
+                            value: prop.as_ident().unwrap().sym.clone().into(),
+                            raw: None
+                        }))),
+                        spread: None
+                    }
+                ];
+
+                for arg in c.args.clone().into_iter().map(|a| {
+                    match a {
+                        ExprOrSpread {
+                            expr: e,
+                            spread: None,
+                        } => match e.unwrap_parens() {
+                            Expr::Arrow(a1) => ExprOrSpread {
+                                expr: {
+                                    let mut a2 = a1.clone();
+                                    a2.body = Box::new(
+                                       *a2.body.fold_with(self)
+                                    );
+                                    Box::new(Expr::Arrow(a2))
+                                },
+                                spread: None,
+                            },
+                            _ => ExprOrSpread {
                                 expr: e,
                                 spread: None,
-                            } => match e.unwrap_parens() {
-                                Expr::Arrow(a1) => ExprOrSpread {
-                                    expr: {
-                                        let mut a2 = a1.clone();
-                                        a2.body = Box::new(
-                                           *a2.body.fold_with(self)
-                                        );
-                                        Box::new(Expr::Arrow(a2))
-                                    },
-                                    spread: None,
-                                },
-                                _ => ExprOrSpread {
-                                    expr: e,
-                                    spread: None,
-                                }
-                            },
-                            _ => a
-                        }
-                    }).collect(),
+                            }
+                        },
+                        _ => a
+                    }
+                }) {
+                    args.push(arg);
+                }
+
+
+                Box::new(Expr::Call(CallExpr {
+                    span: c.span,
+                    // callee: Callee::Expr(Box::new(Expr::Member(MemberExpr {
+                    //     span: DUMMY_SP,
+                    //     obj: obj,
+                    //     prop: MemberProp::Ident(IdentName::from(
+                    //         format!("$.{}", prop.as_ident().unwrap().sym).to_string()
+                    //     )),
+                    // }))),
+                    callee: Callee::Expr(Box::new(Expr::Ident(
+                        Ident::new(
+                            "_$method".into(),
+                            DUMMY_SP,
+                            Default::default(),
+                        )
+                    ))),
+                    // transform first arg if it's a function, keep others
+                    args,
                     type_args: Take::dummy(),
                     ctxt: Default::default(),
                 }))
@@ -245,7 +272,7 @@ impl TransformVisitor {
 
             // convert redundant $()
             Expr::Call(c)
-                if c.callee.is_expr() && (c.callee.as_expr().unwrap().is_ident_ref_to("$")) =>
+                if c.callee.is_expr() && (c.callee.as_expr().unwrap().is_ident_ref_to("always")) =>
             {
                 Box::new(Expr::Call(self.fold_call_expr(c.clone())))
             }
@@ -385,9 +412,9 @@ impl Fold for TransformVisitor {
                 let arg = TransformVisitor::get_first_arg(&call);
 
                 return match e.unwrap_parens() {
-                    Expr::Ident(i) if i.sym.eq_ignore_ascii_case("$") => {
+                    Expr::Ident(i) if i.sym.eq_ignore_ascii_case("always") => {
                         return match arg.unwrap_parens() {
-                            // $$ ()
+                            // constant - wrap in $$ ()
                             Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) => CallExpr {
                                 span: DUMMY_SP,
                                 callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
@@ -399,6 +426,9 @@ impl Fold for TransformVisitor {
                                 type_args: Take::dummy(),
                                 ctxt: call.ctxt,
                             },
+
+                            // callback wrapper, no transformation needed
+                            Expr::Fn(_) => call,
 
                             // default: wrap in always
                             _ => {

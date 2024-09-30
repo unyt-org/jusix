@@ -18,14 +18,14 @@ test!(
     Default::default(),
     |_| TransformVisitor,
     t1,
-    r#"const x = $(10)"#
+    r#"const x = always(10)"#
 );
 
 test!(
     Default::default(),
     |_| TransformVisitor,
     t2,
-    r#"const y = $(y * 2)"#
+    r#"const y = always(y * 2)"#
 );
 
 test!(
@@ -288,7 +288,7 @@ test!(
     },),
     |_| TransformVisitor,
     t23,
-    r#"const x = $(arr.map(a => a*2))"#
+    r#"const x = always(arr.map(a => a*2))"#
 );
 
 test!(
@@ -298,7 +298,7 @@ test!(
     },),
     |_| TransformVisitor,
     t24,
-    r#"const x = $(() => x + 1)"#
+    r#"const x = always(() => x + 1)"#
 );
 
 
@@ -309,7 +309,7 @@ test!(
     },),
     |_| TransformVisitor,
     t25,
-    r#"const x = $(x.$.y)"#
+    r#"const x = always(x.$.y)"#
 );
 
 test!(
@@ -321,7 +321,7 @@ test!(
     t26,
     r#"
     const x = <div>{x+1}</div>;
-    const x = $(<div>{x+1}</div>);
+    const x = always(<div>{x+1}</div>);
     "#
 );
 
@@ -334,7 +334,7 @@ test!(
     |_| TransformVisitor,
     t27,
     r#"
-    const x = $([
+    const x = always([
         1,2,y+1
     ])
     "#
@@ -348,7 +348,7 @@ test!(
     |_| TransformVisitor,
     t28,
     r#"
-    const x = $([
+    const x = always([
         1,2,3
     ])
     "#
@@ -399,7 +399,7 @@ test!(
     t31,
     r#"
     function x () {
-        const y = $(42)
+        const y = always(42)
     }
     "#
 );
@@ -414,7 +414,7 @@ test!(
     t32,
     r#"
     call(function () {
-        const y = $(42)
+        const y = always(42)
     })
     "#
 );
@@ -428,7 +428,7 @@ test!(
     t33,
     r#"
     () => {
-        const y = $(42)
+        const y = always(42)
         const z = <div>{y+1}</div>
     }
     "#
@@ -443,8 +443,41 @@ test!(
     t34,
     r#"
     template(() => {
-        const y = $(42)
+        const y = always(42 + x);
         const z = <div>{y+1}</div>
+    })
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t35,
+    r#"
+    <div>
+        <span>{x + 1}</span>
+        <span>{x}</span>
+        <span>{1}</span>
+        <span>inline&nbsp;text</span>
+    </div>
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t36,
+    r#"
+    let x = 10;
+    run(() => {
+        console.log(x + 1);
     })
     "#
 );
@@ -456,14 +489,18 @@ test!(
         ..Default::default()
     },),
     |_| TransformVisitor,
-    t35,
+    t37,
     r#"
-    run(async () => {
-        const { f, x: g, ...z } = await import("datex-core-legacy");
-        const [v, ...w] = externalFn();
-        let x = 10;
-        console.log(x, f, g, z);
-        f(1);
-    })
+    <input 
+		type="button"
+		value="Hello"
+		onclick:frontend={async () => {
+			const x = <BaseComponent title="x" color="red"/>;
+            const y = 10;
+			console.log(x, y);
+			globalThis.alert('feef')
+			alert("Hello!");
+		}}
+	/>
     "#
 );

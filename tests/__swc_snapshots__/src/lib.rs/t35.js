@@ -1,8 +1,6 @@
-run(async ()=>{
-    use(w, externalFn, console);
-    const { f, x: g, ...z } = await import("datex-core-legacy");
-    const [v, ...w] = externalFn();
-    let x = 10;
-    console.log(x, f, g, z);
-    f(1);
-});
+<div>
+        <span>{_$(()=>x + 1)}</span>
+        <span>{x}</span>
+        <span>{1}</span>
+        <span>inline text</span>
+    </div>;
