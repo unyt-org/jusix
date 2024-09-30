@@ -1,1 +1,1 @@
-const x = _$(()=>x + 1);
+const x = always(()=>x + 1);

@@ -1,3 +1,3 @@
 function x() {
-    const y = $$(42);
+    const y = $(42);
 }

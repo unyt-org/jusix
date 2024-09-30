@@ -3,6 +3,8 @@ import { BaseComponent } from "common/BaseComponent.tsx";
 import ChildComponent from "common/ChildComponent.tsx";
 import { _$method } from "datex-core-legacy/datex_short.ts";
 
+import { renderFrontend } from "uix/base/render-methods.ts"
+
 export default {
 
 	'/datex-tests': () => import("./datex-tests.tsx"),
@@ -230,7 +232,8 @@ export default {
 		type="button"
 		value="Hello"
 		onclick:frontend={async () => {
-			//const { BaseComponent } = await import("common/BaseComponent.tsx");
+			const { BaseComponent } = await import("backend/state.tsx");
+			useImport(BaseComponent);
 
 			const x = <BaseComponent title="x" color="red"/>;
 			console.log(x);
@@ -248,6 +251,22 @@ export default {
 			My Div
 			{toggle (showDialog, componentInstance, <div/>)}
 		</div>;
-	}
+	},
 
+	'/test19': () => {
+		const x = $(0);
+		setInterval(() => x.val++, 1000);
+
+		return <div>
+			Content:
+			<div>
+				{
+					renderFrontend(
+						() => use(x) && <div>4 + {x} = { x + 4 }</div>,
+						"Loading......"
+					)
+				}
+			</div>
+		</div>
+	}
 }

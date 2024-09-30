@@ -321,7 +321,8 @@ test!(
     t26,
     r#"
     const x = <div>{x+1}</div>;
-    const x = always(<div>{x+1}</div>);
+    const y = always(<div>{x+1}</div>);
+    const z = always(42);
     "#
 );
 
@@ -497,6 +498,7 @@ test!(
 		onclick:frontend={async () => {
 			const x = <BaseComponent title="x" color="red"/>;
             const y = 10;
+            const { console } = globalThis; 
 			console.log(x, y);
 			globalThis.alert('feef')
 			alert("Hello!");
@@ -504,3 +506,32 @@ test!(
 	/>
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t38,
+    r#"
+    <div>
+        {
+            renderFrontend(
+                () => <div>
+                    <MyComponent />
+                    4 + {x} = { x + 4 }
+                </div>,
+                "Loading......"
+            )
+        }
+        {
+            renderBackend(
+                <div>{ x + 1 }</div>
+            )
+        }
+    </div>
+    "#
+);
+

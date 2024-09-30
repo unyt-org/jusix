@@ -1,1 +1,1 @@
-const y = _$(()=>y * 2);
+const y = always(()=>y * 2);

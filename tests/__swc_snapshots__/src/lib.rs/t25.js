@@ -1,1 +1,1 @@
-const x = _$(()=>x.$.y);
+const x = always(()=>x.$.y);
