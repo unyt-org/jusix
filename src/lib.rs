@@ -481,3 +481,26 @@ test!(
     })
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t37,
+    r#"
+    <input 
+		type="button"
+		value="Hello"
+		onclick:frontend={async () => {
+			const x = <BaseComponent title="x" color="red"/>;
+            const y = 10;
+			console.log(x, y);
+			globalThis.alert('feef')
+			alert("Hello!");
+		}}
+	/>
+    "#
+);

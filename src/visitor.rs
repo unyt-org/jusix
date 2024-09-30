@@ -23,7 +23,6 @@ impl VariableCollector {
 
 impl Visit for VariableCollector {
     fn visit_ident(&mut self, ident: &Ident) {
-    
         // add variable to list if not already present
         if !self.variables.contains(&ident.sym.to_string()) {
             self.variables.push(ident.sym.to_string());
@@ -231,8 +230,6 @@ impl TransformVisitor {
     }
 
     fn transform_transferable_closure(arrow: &ArrowExpr, ctxt: SyntaxContext) -> ArrowExpr {
-        // TODO: enable?
-        return arrow.clone();
         // find all variables used in the arrow function body
         let mut collector = VariableCollector::new();
         arrow.body.visit_with(&mut collector);
@@ -304,8 +301,6 @@ impl TransformVisitor {
     }
 
     fn transform_transferable_call_expr(call: &CallExpr) -> CallExpr {
-        // TODO: enable?
-        return call.clone();
         let arg = TransformVisitor::get_first_arg(call);
 
         match arg.unwrap_parens() {

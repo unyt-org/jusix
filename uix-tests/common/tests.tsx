@@ -1,6 +1,7 @@
 import Component1, { Car } from "common/Component1.tsx";
 import { BaseComponent } from "common/BaseComponent.tsx";
 import ChildComponent from "common/ChildComponent.tsx";
+import { _$method } from "datex-core-legacy/datex_short.ts";
 
 export default {
 
@@ -228,9 +229,25 @@ export default {
 	'/test17': () => <input 
 		type="button"
 		value="Hello"
-		onclick:frontend={() => {
+		onclick:frontend={async () => {
+			//const { BaseComponent } = await import("common/BaseComponent.tsx");
+
+			const x = <BaseComponent title="x" color="red"/>;
+			console.log(x);
+			globalThis.alert('feef')
 			alert("Hello!");
 		}}
 	/>,
+
+	'/test18': () => {
+		const showDialog = $(false);
+		globalThis.showDialog = showDialog;
+		const componentInstance = <div>Content</div>;
+
+		return <div>
+			My Div
+			{toggle (showDialog, componentInstance, <div/>)}
+		</div>;
+	}
 
 }
