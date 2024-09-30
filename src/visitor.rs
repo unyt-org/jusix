@@ -3,38 +3,108 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt,
-            FnDecl, Ident, JSXEmptyExpr, JSXExpr, JSXExprContainer, Lit, Null, ReturnStmt, Stmt,
-            Str, VarDecl,
-            IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXSpreadChild, MemberExpr, MemberProp
+            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberExpr, MemberProp, Null, ObjectPatProp, Pat, PropName, ReturnStmt, Stmt, Str, VarDecl
         },
-        visit::{Fold, Visit, FoldWith, VisitWith},
+        visit::{Fold, FoldWith, Visit, VisitWith},
     },
 };
 
 struct VariableCollector {
-    variables: Vec<String>,
+    used_variables: Vec<String>,
+    variable_declarations: Vec<String>,
 }
 
 impl VariableCollector {
     fn new() -> Self {
         VariableCollector {
-            variables: Vec::new(),
+            used_variables: Vec::new(),
+            variable_declarations: Vec::new(),
         }
     }
 }
 
 impl Visit for VariableCollector {
     fn visit_ident(&mut self, ident: &Ident) {
-        // add variable to list if not already present
-        if !self.variables.contains(&ident.sym.to_string()) {
-            self.variables.push(ident.sym.to_string());
+        // add variable to list if not already present and not
+        // in variable_declarations
+        let name = ident.sym.to_string();
+        if !self.used_variables.contains(&name) &&
+            !self.variable_declarations.contains(&name) {
+            self.used_variables.push(name);
         }
     }
 
     fn visit_var_decl(&mut self, var_decl: &VarDecl) {
         for decl in &var_decl.decls {
-            decl.name.visit_with(self);
+            // add variable to list if not already present
+            match &decl.name {
+                Pat::Ident(i) => {
+                    let name = i.sym.to_string();
+                    if !self.variable_declarations.contains(&name) {
+                        self.variable_declarations.push(name);
+                    }
+                }
+                Pat::Object(o) => {
+                    for prop in &o.props {
+                        match prop {
+                            ObjectPatProp::KeyValue(kv) => {
+                                match *kv.value.clone() {
+                                    Pat::Ident(i) => {
+                                        let name = i.sym.to_string();
+                                        if !self.variable_declarations.contains(&name) {
+                                            self.variable_declarations.push(name);
+                                        }
+                                    }
+                                    _ => {}
+                                    
+                                }
+                            }
+                            ObjectPatProp::Assign(a) => {
+                                let name = a.key.sym.to_string();
+                                if !self.variable_declarations.contains(&name) {
+                                    self.variable_declarations.push(name);
+                                }
+                            }
+                            ObjectPatProp::Rest(r) => {
+                                if let Pat::Ident(i) = &*r.arg {
+                                    let name = i.sym.to_string();
+                                    if !self.variable_declarations.contains(&name) {
+                                        self.variable_declarations.push(name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Pat::Array(a) => {
+                    for elem in &a.elems {
+                        match elem {
+                            Some(Pat::Ident(i)) => {
+                                let name = i.sym.to_string();
+                                if !self.variable_declarations.contains(&name) {
+                                    self.variable_declarations.push(name);
+                                }
+                            }
+                            Some(Pat::Array(a)) => {
+                                for elem in &a.elems {
+                                    match elem {
+                                        Some(Pat::Ident(i)) => {
+                                            let name = i.sym.to_string();
+                                            if !self.variable_declarations.contains(&name) {
+                                                self.variable_declarations.push(name);
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {}
+            }
+            decl.visit_with(self);
         }
     }
 
@@ -213,7 +283,7 @@ impl TransformVisitor {
         let mut body_vec = vec![];
 
         // add use();
-        if collector.variables.len() > 0 {
+        if collector.used_variables.len() > 0 {
             body_vec.push(Stmt::Expr(ExprStmt {
                 span: DUMMY_SP,
                 expr: Box::new(Expr::Call(CallExpr {
@@ -224,7 +294,7 @@ impl TransformVisitor {
                         ctxt,
                     )))),
                     args: collector
-                        .variables
+                        .used_variables
                         .iter()
                         // ignore "use" variable
                         .filter(|v| !(*v == "use"))

@@ -448,3 +448,22 @@ test!(
     })
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t35,
+    r#"
+    run(async () => {
+        const { f, x: g, ...z } = await import("datex-core-legacy");
+        const [v, ...w] = externalFn();
+        let x = 10;
+        console.log(x, f, g, z);
+        f(1);
+    })
+    "#
+);
