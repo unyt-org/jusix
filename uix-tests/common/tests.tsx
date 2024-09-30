@@ -184,7 +184,7 @@ export default {
 	},
 
 	'/test12': () => {
-		const showDialog = $$(false);
+		const showDialog = $(false);
 		globalThis.showDialog = showDialog;
 		return <div>
 			<div>My Div</div>
@@ -193,7 +193,7 @@ export default {
 	},
 
 	'/test13': () => {
-		const showDialog = $$(false);
+		const showDialog = $(false);
 		globalThis.showDialog = showDialog;
 		return <div>
 			<div>My Div</div>
@@ -202,7 +202,7 @@ export default {
 	},
 
 	'/test14': () => {
-		const showDialog = $$(true);
+		const showDialog = $(true);
 		globalThis.showDialog = showDialog;
 		return <div>
 			<div>My Div</div>
@@ -211,7 +211,7 @@ export default {
 	},
 
 	'/test15': () => {
-		const showDialog = $$(false);
+		const showDialog = $(false);
 		globalThis.showDialog = showDialog;
 		return <div>
 			<div>My Div</div>
@@ -220,7 +220,7 @@ export default {
 	},
 
 	'/test16': () => {
-		const showDialog = $$(false);
+		const showDialog = $(false);
 		globalThis.showDialog = showDialog;
 		return <div>
 			<div>My Div</div>
@@ -232,8 +232,7 @@ export default {
 		type="button"
 		value="Hello"
 		onclick:frontend={async () => {
-			const { BaseComponent } = await import("backend/state.tsx");
-			useImport(BaseComponent);
+			const { BaseComponent } = await import("common/BaseComponent.tsx");
 
 			const x = <BaseComponent title="x" color="red"/>;
 			console.log(x);

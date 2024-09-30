@@ -3,7 +3,7 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, IdentName, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberExpr, MemberProp, Null, ObjectPatProp, Pat, PropName, ReturnStmt, Stmt, Str, VarDecl
+            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
@@ -25,7 +25,7 @@ impl VariableCollector {
 
 impl Visit for VariableCollector {
 
-    fn visit_jsx_element_name(&mut self, name: &JSXElementName) {
+    fn visit_jsx_element_name(&mut self, _name: &JSXElementName) {
         // ignore jsx name as identifier
     }
 
