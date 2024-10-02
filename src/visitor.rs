@@ -5,7 +5,7 @@ use swc_core::{
         ast::{
             ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
         },
-        visit::{Fold, FoldWith, Visit, VisitMutWith, VisitWith},
+        visit::{Fold, FoldWith, Visit, VisitWith},
     },
 };
 
