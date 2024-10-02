@@ -3,7 +3,7 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
+            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
@@ -139,7 +139,7 @@ impl Visit for AsyncChecker {
     // ignore if async inside function
     fn visit_fn_decl(&mut self, _node: &FnDecl) {}
     fn visit_arrow_expr(&mut self, _node: &ArrowExpr) {}
-    fn visit_fn_expr(&mut self, _node: &swc_core::ecma::ast::FnExpr) {}
+    fn visit_fn_expr(&mut self, _node: &FnExpr) {}
 }
 
 
