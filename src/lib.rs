@@ -535,3 +535,34 @@ test!(
     "#
 );
 
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t39,
+    r#"
+    <div>
+        {
+            await x(y)
+        }
+    </div>
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t40,
+    r#"
+    <div>
+        {
+            (async () => await x(y))()
+        }
+    </div>
+    "#
+);

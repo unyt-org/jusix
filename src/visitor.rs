@@ -3,9 +3,9 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
+            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
         },
-        visit::{Fold, FoldWith, Visit, VisitWith},
+        visit::{Fold, FoldWith, Visit, VisitMutWith, VisitWith},
     },
 };
 
@@ -124,6 +124,22 @@ impl Visit for VariableCollector {
             stmt.visit_with(self);
         }
     }
+}
+
+
+struct AsyncChecker {
+    is_async: bool,
+}
+
+impl Visit for AsyncChecker {
+    fn visit_await_expr(&mut self, _node: &AwaitExpr) {
+        self.is_async = true;
+    }
+
+    // ignore if async inside function
+    fn visit_fn_decl(&mut self, _node: &FnDecl) {}
+    fn visit_arrow_expr(&mut self, _node: &ArrowExpr) {}
+    fn visit_fn_expr(&mut self, _node: &swc_core::ecma::ast::FnExpr) {}
 }
 
 
@@ -308,27 +324,45 @@ impl TransformVisitor {
             }
 
             // default: wrap in always
-            _ => Box::new(Expr::Call(CallExpr {
-                span: DUMMY_SP,
-                callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
-                    always_fn_name.into(),
-                    DUMMY_SP,
-                    Default::default(),
-                )))),
-                args: vec![Expr::Arrow(ArrowExpr {
+            _ => {
+                // check if body contains await -> is_async
+                let mut async_checker = AsyncChecker { is_async: false };
+                e.visit_with(&mut async_checker);
+                let is_async = async_checker.is_async;
+
+                let call_expr = Expr::Call(CallExpr {
                     span: DUMMY_SP,
-                    params: Take::dummy(),
-                    body: Box::new(BlockStmtOrExpr::Expr(e)),
-                    is_async: false,
-                    is_generator: false,
-                    type_params: Take::dummy(),
-                    return_type: Take::dummy(),
+                    callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                        always_fn_name.into(),
+                        DUMMY_SP,
+                        Default::default(),
+                    )))),
+                    args: vec![Expr::Arrow(ArrowExpr {
+                        span: DUMMY_SP,
+                        params: Take::dummy(),
+                        body: Box::new(BlockStmtOrExpr::Expr(e)),
+                        is_async,
+                        is_generator: false,
+                        type_params: Take::dummy(),
+                        return_type: Take::dummy(),
+                        ctxt: Default::default(),
+                    })
+                    .into()],
+                    type_args: Take::dummy(),
                     ctxt: Default::default(),
-                })
-                .into()],
-                type_args: Take::dummy(),
-                ctxt: Default::default(),
-            })),
+                });
+
+                // add await if async
+                if is_async {
+                    Box::new(Expr::Await(AwaitExpr {
+                        span: DUMMY_SP,
+                        arg: Box::new(call_expr)
+                    }))
+                }
+                else {
+                    Box::new(call_expr)
+                }
+            },
         }
     }
 
