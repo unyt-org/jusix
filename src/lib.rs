@@ -566,3 +566,18 @@ test!(
     </div>
     "#
 );
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t41,
+    r#"
+    export default {
+        '/test': async () => <Example user={await getCurrentUser()}/>
+    }
+    "#
+);
+
