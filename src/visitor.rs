@@ -9,7 +9,80 @@ use swc_core::{
     },
 };
 
+
+
+fn collect_params(params: &Vec<Pat>) -> Vec<Id> {
+    let mut result: Vec<Id> = vec![];
+
+    for param in params {
+        match param {
+            Pat::Ident(i) => {
+                let var = i.to_id();
+                if !result.contains(&var) {
+                    result.push(var);
+                }
+            }
+            Pat::Array(a) => {
+                for elem in &a.elems {
+                    match elem {
+                        Some(Pat::Ident(i)) => {
+                            let var = i.to_id();
+                            if !result.contains(&var) {
+                                result.push(var);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Pat::Object(o) => {
+                for prop in &o.props {
+                    match prop {
+                        ObjectPatProp::KeyValue(kv) => {
+                            match *kv.value.clone() {
+                                Pat::Ident(i) => {
+                                    let var = i.to_id();
+                                    if !result.contains(&var) {
+                                        result.push(var);
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        ObjectPatProp::Assign(a) => {
+                            let var = a.key.to_id();
+                            if !result.contains(&var) {
+                                result.push(var);
+                            }
+                        }
+                        ObjectPatProp::Rest(r) => {
+                            if let Pat::Ident(i) = *r.arg.clone() {
+                                let var: (Atom, SyntaxContext) = i.to_id();
+                                if !result.contains(&var) {
+                                    result.push(var);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Pat::Rest(r) => {
+                if let Pat::Ident(i) = *r.arg.clone() {
+                    let var = i.to_id();
+                    if !result.contains(&var) {
+                        result.push(var);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    return result;
+}
+
 struct VariableCollector {
+    has_custom_use: bool,
     used_variables: Vec<Id>,
     variable_declarations: Vec<Id>,
 }
@@ -17,6 +90,7 @@ struct VariableCollector {
 impl VariableCollector {
     fn new() -> Self {
         VariableCollector {
+            has_custom_use: false,
             used_variables: Vec::new(),
             variable_declarations: Vec::new(),
         }
@@ -39,71 +113,19 @@ impl VariableCollector {
         }
 
         // add function parameters to the new collector
-        for param in params {
-            match param {
-                Pat::Ident(i) => {
-                    let var = i.to_id();
-                    if !collector.variable_declarations.contains(&var) {
-                        collector.variable_declarations.push(var);
-                    }
-                }
-                Pat::Array(a) => {
-                    for elem in &a.elems {
-                        match elem {
-                            Some(Pat::Ident(i)) => {
-                                let var = i.to_id();
-                                if !collector.variable_declarations.contains(&var) {
-                                    collector.variable_declarations.push(var);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Pat::Object(o) => {
-                    for prop in &o.props {
-                        match prop {
-                            ObjectPatProp::KeyValue(kv) => {
-                                match *kv.value.clone() {
-                                    Pat::Ident(i) => {
-                                        let var = i.to_id();
-                                        if !collector.variable_declarations.contains(&var) {
-                                            collector.variable_declarations.push(var);
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            ObjectPatProp::Assign(a) => {
-                                let var = a.key.to_id();
-                                if !collector.variable_declarations.contains(&var) {
-                                    collector.variable_declarations.push(var);
-                                }
-                            }
-                            ObjectPatProp::Rest(r) => {
-                                if let Pat::Ident(i) = *r.arg.clone() {
-                                    let var = i.to_id();
-                                    if !collector.variable_declarations.contains(&var) {
-                                        collector.variable_declarations.push(var);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Pat::Rest(r) => {
-                    if let Pat::Ident(i) = *r.arg.clone() {
-                        let var = i.to_id();
-                        if !collector.variable_declarations.contains(&var) {
-                            collector.variable_declarations.push(var);
-                        }
-                    }
-                }
-                _ => {}
+        for param in collect_params(params) {
+            if !collector.variable_declarations.contains(&param) {
+                collector.variable_declarations.push(param);
             }
         }
 
         visitable.visit_children_with(&mut collector);
+
+        // TODO: this should not be necessary
+        if collector.has_custom_use {
+            self.has_custom_use = true;
+        }
+
         // add used variables to the current collector
         for var in collector.used_variables {
             if !self.used_variables.contains(&var) {
@@ -114,6 +136,26 @@ impl VariableCollector {
 }
 
 impl Visit for VariableCollector {
+
+    // when ecountering existing custom use() call, don't inject use() call
+    fn visit_call_expr(&mut self, call_expr: &CallExpr) {
+        match &call_expr.callee {
+            Callee::Expr(e) => {
+                match e.as_ident() {
+                    Some(i) => {
+                        if i.sym.eq_ignore_ascii_case("use") {
+                            self.has_custom_use = true;
+                            return;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+            
+        }
+        call_expr.visit_children_with(self);
+    }
 
     fn visit_jsx_element_name(&mut self, _name: &JSXElementName) {
         // ignore jsx name as identifier
@@ -514,12 +556,20 @@ impl TransformVisitor {
     fn transform_transferable_closure(arrow: &ArrowExpr, ctxt: SyntaxContext) -> ArrowExpr {
         // find all variables used in the arrow function body
         let mut collector = VariableCollector::new();
-        arrow.body.visit_with(&mut collector);
+
+        // add arrow function params to collector variable_declarations
+        for param in collect_params(&arrow.params) {
+            if !collector.variable_declarations.contains(&param) {
+                collector.variable_declarations.push(param);
+            }
+        }
+
+        arrow.body.visit_children_with(&mut collector);
 
         let mut body_vec = vec![];
 
-        // add _use();
-        if collector.used_variables.len() > 0 {
+        // add use();
+        if collector.used_variables.len() > 0 && !collector.has_custom_use {
 
             // add "silent-errors" string literal as first arg
             let args = vec![
@@ -615,6 +665,7 @@ impl TransformVisitor {
                 type_args: call.type_args.clone(),
                 ctxt: call.ctxt,
             },
+            // TODO: other functions
             _ => call.clone(),
         }
     }

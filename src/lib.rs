@@ -32,8 +32,8 @@ test!(
     Default::default(),
     |_| TransformVisitor,
     t3,
-    r#"run(() => {
-        console.log(x + y);
+    r#"run((a) => {
+        console.log(a, x + y);
         return x + 1;
     })"#
 );
