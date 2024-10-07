@@ -695,3 +695,25 @@ test!(
     });
     "#
 );
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t48,
+    r#"
+    class A {
+        test() {
+            return <div>
+                <input value={x.value} />
+                <input value={this.value} />
+                <input value={super.value} />
+                <input value={a['x'].value} />
+            </div>
+        }
+    }
+    "#
+);
+

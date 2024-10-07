@@ -360,7 +360,7 @@ impl TransformVisitor {
     fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str) -> Box<Expr> {
         match e.unwrap_parens() {
             // keep single literal values
-            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) => e,
+            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) => e,
 
             // keep functions
             Expr::Arrow(_) | Expr::Fn(_) => e,
@@ -693,7 +693,7 @@ impl Fold for TransformVisitor {
                     Expr::Ident(i) if i.sym.eq_ignore_ascii_case("always") => {
                         return match arg.unwrap_parens() {
                             // constant - wrap in $$ ()
-                            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) => CallExpr {
+                            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) => CallExpr {
                                 span: DUMMY_SP,
                                 callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
                                     "$".into(),
