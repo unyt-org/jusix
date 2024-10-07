@@ -672,3 +672,26 @@ test!(
     });
     "#
 );
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t47,
+    r#"
+    renderFrontend(() => {
+        try {} 
+        catch (e1) {
+            console.log(e1);
+        }
+
+        try {} 
+        catch (e2) {
+            console.log(e2);
+        }
+        console.log(e2);
+    });
+    "#
+);

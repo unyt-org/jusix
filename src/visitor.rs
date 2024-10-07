@@ -3,7 +3,7 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, Number, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, ThisExpr, VarDecl
+            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, CatchClause, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, Number, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, ThisExpr, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
@@ -248,6 +248,18 @@ impl Visit for VariableCollector {
     fn visit_block_stmt(&mut self, block_stmt: &BlockStmt) {
         // Visit the block statement recursively
         self.visit_block_recursive(&vec![], block_stmt);
+    }
+
+    // catch expression, pass variables to block
+    fn visit_catch_clause(&mut self, node: &CatchClause) {
+
+        let mut params = vec![];
+
+        if let Some(param) = &node.param {
+            params.push(param.clone());
+        }
+
+        self.visit_block_recursive(&params, &node.body);
     }
 
 }
