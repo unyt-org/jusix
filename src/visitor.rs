@@ -406,6 +406,14 @@ impl TransformVisitor {
                 )
             ),
 
+            // is val() call expr -> ignore and just return val
+            Expr::Call(c)
+                if c.callee.is_expr()
+                    && c.callee.as_expr().unwrap().is_ident_ref_to("val") =>
+            {
+                e
+            }
+
             // convert array.map(() => {}) to _$method(array, 'map', (() => {})
             // TODO
             Expr::Call(c)

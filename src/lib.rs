@@ -717,3 +717,44 @@ test!(
     "#
 );
 
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t49,
+    r#"
+    call(function ({title, icon, children}) {
+        return <div class="card">
+            <span title="Dialog schließen" onclick:frontend={()=>use(this) && this.closeDialog()} class="desktop-close"><i class="fa-solid fa-xmark"/></span>
+            <h1>
+                <span title="Zurück" onclick:frontend={()=> this.closeDialog()} class="mobile-back"><i class="fa-solid fa-chevron-left"/></span>
+                { icon && <i class={`fas ${icon}`} style="margin-right:10px"/>}
+                {title}
+            </h1>
+            {...children}
+            {...(children)}
+            {...[1,2,3]}
+            {...([1,2,3].map((item) => <span>{item}</span>))}
+        </div>
+    });
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t50,
+    r#"
+    <div>
+        <div>{val(x.y)}</div>
+        <div>{val(x())}</div>
+    </div>
+    "#
+);
