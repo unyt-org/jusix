@@ -538,11 +538,11 @@ impl TransformVisitor {
                 .used_variables
                 .iter()
                 .map(|v| {
-                    Expr::Lit(Lit::Str(Str {
-                        span: DUMMY_SP,
-                        value: v.0.clone(),
-                        raw: Some(v.0.clone()),
-                    }))
+                    Expr::Ident(Ident::new(
+                        v.0.clone(),
+                        DUMMY_SP,
+                        v.1,
+                    ))
                 })
                 .map(|v| ExprOrSpread {
                     expr: Box::new(v),
