@@ -1,6 +1,6 @@
 [package]
 name = "jusix"
-version = "0.1.16"
+version = "0.1.17"
 edition = "2021"
 description = "An SWC plugin that enables embedded JSX reactivity and $() shortcut function for UIX"
 license = "MIT"
