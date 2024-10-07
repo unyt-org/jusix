@@ -1,4 +1,4 @@
 <button value:frontend={always(()=>{
-    use(x);
+    use("silent-errors", x);
     return x + 1;
 })}/>;

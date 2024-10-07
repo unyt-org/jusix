@@ -581,3 +581,94 @@ test!(
     "#
 );
 
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t42,
+    r#"
+    renderFrontend(async () => {
+        function blabla(fn1, fn2) {
+            console.log(fn1, fn2, fn3);
+        }
+        console.log(fn1, blabla());
+    })
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t43,
+    r#"
+    renderFrontend(() => {
+        const _fn = function([fn4]) {
+            const fn5 = 5;
+            function innerFn(fn7) {
+                console.log(fn4, fn5, fn7, fn8);
+            }
+            console.log(fn4, fn5, fn6);
+        };
+    });
+    "#
+);
+
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t44,
+    r#"
+    renderFrontend(() => {
+        const handleKeydown = (e, [_1, _2], { b: _3 }, ..._4) => {
+            let lol = 1;
+            console.log(e, _1, _2, _3, _4, xxx);
+        };
+
+        console.log(lol);
+    });
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t45,
+    r#"
+    renderFrontend(() => {
+        console.log(null, undefined, globalThis, window, true, false, NaN, Infinity, -Infinity);
+    });
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t46,
+    r#"
+    renderFrontend(() => {
+        {
+            const inner1 = 1;
+            const inner2 = 2;
+            console.log(inner1, inner2, outer1);
+        }
+        console.log(inner1);
+    });
+    "#
+);

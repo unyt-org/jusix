@@ -1,5 +1,5 @@
 run(()=>{
-    use(x, y);
+    use("silent-errors", x, y);
     use(x);
     return x + y;
 });

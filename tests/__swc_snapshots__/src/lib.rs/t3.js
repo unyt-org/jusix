@@ -1,5 +1,5 @@
 run(()=>{
-    use(console, x, y);
+    use("silent-errors", console, x, y);
     console.log(x + y);
     return x + 1;
 });

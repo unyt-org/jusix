@@ -1,6 +1,6 @@
 <div>
         {renderFrontend(()=>{
-    use(x);
+    use("silent-errors", x);
     return <div>
                     <MyComponent/>
                     4 + {x} = {x + 4}

@@ -1,4 +1,4 @@
 <button onclick:frontend={()=>{
-    use(console, x);
+    use("silent-errors", console, x);
     return console.log(x);
 }}/>;

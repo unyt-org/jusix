@@ -3,15 +3,15 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, VarDecl
+            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, Number, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, ThisExpr, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
 };
 
 struct VariableCollector {
-    used_variables: Vec<String>,
-    variable_declarations: Vec<String>,
+    used_variables: Vec<Id>,
+    variable_declarations: Vec<Id>,
 }
 
 impl VariableCollector {
@@ -23,31 +23,41 @@ impl VariableCollector {
     }
 }
 
-impl Visit for VariableCollector {
+impl VariableCollector {
+    /**
+     * Visit a block or function body recursively
+     */
+    fn visit_block_recursive(&mut self, params: &Vec<Pat>, visitable: &impl VisitWith<dyn Visit>) {
+        // recursively visit the arrow function body with a new collector
+        let mut collector = VariableCollector::new();
 
-    fn visit_jsx_element_name(&mut self, _name: &JSXElementName) {
-        // ignore jsx name as identifier
-    }
-
-    fn visit_ident(&mut self, ident: &Ident) {
-        // add variable to list if not already present and not
-        // in variable_declarations
-        let name = ident.sym.to_string();
-        if !self.used_variables.contains(&name) &&
-            !self.variable_declarations.contains(&name) &&
-            !GLOBAL_THIS_ALIASES.contains(&name.as_str()) {
-            self.used_variables.push(name);
+        // add existing variable declarations to the new collector
+        for var in &self.variable_declarations {
+            if !collector.variable_declarations.contains(var) {
+                collector.variable_declarations.push(var.clone());
+            }
         }
-    }
 
-    fn visit_var_decl(&mut self, var_decl: &VarDecl) {
-        for decl in &var_decl.decls {
-            // add variable to list if not already present
-            match &decl.name {
+        // add function parameters to the new collector
+        for param in params {
+            match param {
                 Pat::Ident(i) => {
-                    let name = i.sym.to_string();
-                    if !self.variable_declarations.contains(&name) {
-                        self.variable_declarations.push(name);
+                    let var = i.to_id();
+                    if !collector.variable_declarations.contains(&var) {
+                        collector.variable_declarations.push(var);
+                    }
+                }
+                Pat::Array(a) => {
+                    for elem in &a.elems {
+                        match elem {
+                            Some(Pat::Ident(i)) => {
+                                let var = i.to_id();
+                                if !collector.variable_declarations.contains(&var) {
+                                    collector.variable_declarations.push(var);
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 Pat::Object(o) => {
@@ -56,9 +66,103 @@ impl Visit for VariableCollector {
                             ObjectPatProp::KeyValue(kv) => {
                                 match *kv.value.clone() {
                                     Pat::Ident(i) => {
-                                        let name = i.sym.to_string();
-                                        if !self.variable_declarations.contains(&name) {
-                                            self.variable_declarations.push(name);
+                                        let var = i.to_id();
+                                        if !collector.variable_declarations.contains(&var) {
+                                            collector.variable_declarations.push(var);
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            ObjectPatProp::Assign(a) => {
+                                let var = a.key.to_id();
+                                if !collector.variable_declarations.contains(&var) {
+                                    collector.variable_declarations.push(var);
+                                }
+                            }
+                            ObjectPatProp::Rest(r) => {
+                                if let Pat::Ident(i) = *r.arg.clone() {
+                                    let var = i.to_id();
+                                    if !collector.variable_declarations.contains(&var) {
+                                        collector.variable_declarations.push(var);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Pat::Rest(r) => {
+                    if let Pat::Ident(i) = *r.arg.clone() {
+                        let var = i.to_id();
+                        if !collector.variable_declarations.contains(&var) {
+                            collector.variable_declarations.push(var);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        visitable.visit_children_with(&mut collector);
+        // add used variables to the current collector
+        for var in collector.used_variables {
+            if !self.used_variables.contains(&var) {
+                self.used_variables.push(var);
+            }
+        }
+    }
+}
+
+impl Visit for VariableCollector {
+
+    fn visit_jsx_element_name(&mut self, _name: &JSXElementName) {
+        // ignore jsx name as identifier
+    }
+
+    fn visit_number(&mut self, _node: &Number) {
+        // ignore number literals
+    }
+
+    fn visit_this_expr(&mut self, _node: &ThisExpr) {
+        // add 'this' to used variables
+        let var = (Atom::from("this"), SyntaxContext::empty());
+        if !self.used_variables.contains(&var) {
+            self.used_variables.push(var);
+        }
+    }
+
+    fn visit_ident(&mut self, ident: &Ident) {
+        // add variable to list if not already present and not
+        // in variable_declarations
+        let name: String = ident.sym.to_string();
+        let var = ident.to_id();
+        if !self.used_variables.contains(&var) &&
+            !self.variable_declarations.contains(&var) &&
+            !GLOBAL_THIS_ALIASES.contains(&name.as_str()) && 
+            !RESERVED_IDENTIFIERS.contains(&name.as_str()) {
+            self.used_variables.push(var);
+        }
+    }
+
+    fn visit_var_decl(&mut self, var_decl: &VarDecl) {
+        for decl in &var_decl.decls {
+            // add variable to list if not already present
+            match &decl.name {
+                Pat::Ident(i) => {
+                    let var = i.to_id();
+                    if !self.variable_declarations.contains(&var) {
+                        self.variable_declarations.push(var);
+                    }
+                }
+                Pat::Object(o) => {
+                    for prop in &o.props {
+                        match prop {
+                            ObjectPatProp::KeyValue(kv) => {
+                                match *kv.value.clone() {
+                                    Pat::Ident(i) => {
+                                        let var = i.to_id();
+                                        if !self.variable_declarations.contains(&var) {
+                                            self.variable_declarations.push(var);
                                         }
                                     }
                                     _ => {}
@@ -66,16 +170,16 @@ impl Visit for VariableCollector {
                                 }
                             }
                             ObjectPatProp::Assign(a) => {
-                                let name = a.key.sym.to_string();
-                                if !self.variable_declarations.contains(&name) {
-                                    self.variable_declarations.push(name);
+                                let var = a.key.to_id();
+                                if !self.variable_declarations.contains(&var) {
+                                    self.variable_declarations.push(var);
                                 }
                             }
                             ObjectPatProp::Rest(r) => {
                                 if let Pat::Ident(i) = &*r.arg {
-                                    let name = i.sym.to_string();
-                                    if !self.variable_declarations.contains(&name) {
-                                        self.variable_declarations.push(name);
+                                    let var = i.to_id();
+                                    if !self.variable_declarations.contains(&var) {
+                                        self.variable_declarations.push(var);
                                     }
                                 }
                             }
@@ -86,18 +190,18 @@ impl Visit for VariableCollector {
                     for elem in &a.elems {
                         match elem {
                             Some(Pat::Ident(i)) => {
-                                let name = i.sym.to_string();
-                                if !self.variable_declarations.contains(&name) {
-                                    self.variable_declarations.push(name);
+                                let var = i.to_id();
+                                if !self.variable_declarations.contains(&var) {
+                                    self.variable_declarations.push(var);
                                 }
                             }
                             Some(Pat::Array(a)) => {
                                 for elem in &a.elems {
                                     match elem {
                                         Some(Pat::Ident(i)) => {
-                                            let name = i.sym.to_string();
-                                            if !self.variable_declarations.contains(&name) {
-                                                self.variable_declarations.push(name);
+                                            let var = i.to_id();
+                                            if !self.variable_declarations.contains(&var) {
+                                                self.variable_declarations.push(var);
                                             }
                                         }
                                         _ => {}
@@ -115,15 +219,37 @@ impl Visit for VariableCollector {
     }
 
     fn visit_fn_decl(&mut self, fn_decl: &FnDecl) {
+        // store name in variable_declarations
+        let var = fn_decl.ident.to_id();
+        if !self.variable_declarations.contains(&var) {
+            self.variable_declarations.push(var);
+        }
+
         // Visit the function body
-        fn_decl.function.body.visit_with(self);
+        self.visit_block_recursive(
+            &fn_decl.function.params.iter().map(|p| p.pat.clone()).collect(),
+            &fn_decl.function.body
+        );
+    }
+
+    fn visit_arrow_expr(&mut self, node: &ArrowExpr) {
+        // Visit function body recursively
+        self.visit_block_recursive(&node.params, &node.body);
+    }
+
+    fn visit_fn_expr(&mut self, node: &FnExpr) {
+        // Visit the function body
+        self.visit_block_recursive(
+            &node.function.params.iter().map(|p| p.pat.clone()).collect(),
+            &node.function.body
+        );
     }
 
     fn visit_block_stmt(&mut self, block_stmt: &BlockStmt) {
-        for stmt in &block_stmt.stmts {
-            stmt.visit_with(self);
-        }
+        // Visit the block statement recursively
+        self.visit_block_recursive(&vec![], block_stmt);
     }
+
 }
 
 
@@ -147,6 +273,13 @@ const GLOBAL_THIS_ALIASES: [&'static str; 3] = [
     "globalThis",
     "self",
     "window",
+];
+
+const RESERVED_IDENTIFIERS: [&'static str; 4] = [
+    "undefined",
+    "NaN",
+    "Infinity",
+    "use"
 ];
 
 
@@ -373,8 +506,39 @@ impl TransformVisitor {
 
         let mut body_vec = vec![];
 
-        // add use();
+        // add _use();
         if collector.used_variables.len() > 0 {
+
+            // add "silent-errors" string literal as first arg
+            let args = vec![
+                ExprOrSpread {
+                    expr: Box::new(
+                        Expr::Lit(Lit::Str(Str {
+                            span: DUMMY_SP,
+                            value: "silent-errors".into(),
+                            raw: None,
+                        })),
+                    ),
+                    spread: None,
+                }
+            ];
+            let used_vars = collector
+                .used_variables
+                .iter()
+                .map(|v| {
+                    Expr::Lit(Lit::Str(Str {
+                        span: DUMMY_SP,
+                        value: v.0.clone(),
+                        raw: Some(v.0.clone()),
+                    }))
+                })
+                .map(|v| ExprOrSpread {
+                    expr: Box::new(v),
+                    spread: None,
+                });
+
+            let args = args.into_iter().chain(used_vars).collect();
+            
             body_vec.push(Stmt::Expr(ExprStmt {
                 span: DUMMY_SP,
                 expr: Box::new(Expr::Call(CallExpr {
@@ -384,20 +548,7 @@ impl TransformVisitor {
                         DUMMY_SP,
                         ctxt,
                     )))),
-                    args: collector
-                        .used_variables
-                        .iter()
-                        // ignore "use" variable
-                        .filter(|v| !(*v == "use"))
-                        .map(|v| {
-                            Expr::Lit(Lit::Str(Str {
-                                span: DUMMY_SP,
-                                value: Atom::from(v.clone()),
-                                raw: Some(Atom::from(v.clone())),
-                            }))
-                        })
-                        .map(|v| v.into())
-                        .collect(),
+                    args,
                     type_args: Take::dummy(),
                     ctxt,
                 })),
