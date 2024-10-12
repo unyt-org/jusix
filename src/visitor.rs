@@ -666,11 +666,17 @@ impl TransformVisitor {
                 .used_variables
                 .iter()
                 .map(|v| {
-                    Expr::Ident(Ident::new(
-                        v.0.clone(),
-                        DUMMY_SP,
-                        v.1,
-                    ))
+                    if v.0 == "this" {
+                        Expr::This(ThisExpr { span: DUMMY_SP })
+                    }
+                    else {
+                        Expr::Ident(Ident::new(
+                            v.0.clone(),
+                            DUMMY_SP,
+                            v.1,
+                        ))
+                    }
+                   
                 })
                 .map(|v| ExprOrSpread {
                     expr: Box::new(v),

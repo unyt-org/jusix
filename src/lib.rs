@@ -855,3 +855,23 @@ test!(
     })
     "#
 );
+
+
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t53,
+    r#"
+    class X {
+        method() {
+            return <button 
+                onclick:frontend={() => this.handleSettings(data)}>
+                Apply settings
+            </button>
+        }
+    }
+    "#
+);
