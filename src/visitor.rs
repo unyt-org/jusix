@@ -3,7 +3,7 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, AwaitExpr, BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, CatchClause, ClassDecl, ClassMethod, Constructor, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, JSXText, Lit, MemberProp, Null, Number, ObjectPatProp, Param, ParamOrTsParamProp, Pat, PrivateMethod, ReturnStmt, Stmt, Str, ThisExpr, TsAsExpr, TsEnumDecl, TsInterfaceDecl, TsParamPropParam, TsType, TsTypeAliasDecl, VarDecl
+            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, CatchClause, ClassDecl, ClassMethod, Constructor, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, JSXText, Lit, MemberProp, Null, Number, ObjectPatProp, ParamOrTsParamProp, Pat, PrivateMethod, ReturnStmt, Stmt, Str, ThisExpr, TsEnumDecl, TsInterfaceDecl, TsParamPropParam, TsType, TsTypeAliasDecl, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
@@ -163,15 +163,15 @@ impl Visit for VariableCollector {
         call_expr.visit_children_with(self);
     }
 
-    fn visit_ts_type(&mut self, node: &TsType) {
+    fn visit_ts_type(&mut self, _node: &TsType) {
         // ignore type annotations
     }
 
-    fn visit_ts_type_alias_decl(&mut self, node: &TsTypeAliasDecl) {
+    fn visit_ts_type_alias_decl(&mut self, _node: &TsTypeAliasDecl) {
         // ignore type alias declarations
     }
 
-    fn visit_ts_interface_decl(&mut self, node: &TsInterfaceDecl) {
+    fn visit_ts_interface_decl(&mut self, _node: &TsInterfaceDecl) {
         // ignore interface declarations
     }
 
