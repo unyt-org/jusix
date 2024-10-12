@@ -1,6 +1,6 @@
 use swc_core::ecma::{ast::Program, transforms::testing::test, visit::FoldWith};
 use swc_core::plugin::{plugin_transform, proxies::TransformPluginProgramMetadata};
-use swc_ecma_parser::{EsSyntax, Syntax};
+use swc_ecma_parser::{EsSyntax, Syntax, TsSyntax};
 use visitor::TransformVisitor;
 
 pub mod visitor;
@@ -649,7 +649,7 @@ test!(
     t45,
     r#"
     renderFrontend(() => {
-        console.log(null, undefined, globalThis, window, true, false, NaN, Infinity, -Infinity);
+        console.log(null, undefined, this, globalThis, window, true, false, NaN, Infinity, -Infinity);
     });
     "#
 );
@@ -753,8 +753,105 @@ test!(
     t50,
     r#"
     <div>
-        <div>{val(x.y)}</div>
-        <div>{val(x())}</div>
+        <div>{x.y}</div>
+        <div>#static{x.y}</div>
+        <div>{x()}</div>
+        <div>#static{x()}</div>
+        <div>{x+1}</div>
+        <div>#static{x+1}</div>
+
+        <div>#static {x+1}</div>
+        <div>#static 
+        {x+1}
+        </div>
+        <div>#staticxy
+        {x+1}
+        </div>
+        <div>#static{x+1}{x+2}</div>
     </div>
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t51,
+    r#"
+    <button 
+        onclick:frontend={() => this.handleSettings()}>
+        Apply settings
+    </button>
+    "#
+);
+
+
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t52,
+    r#"
+    run(() => {
+        const x1 = y as Z1;
+        const x2 = y satisfies Z2;
+        const x3: Z3 = y;
+        const x4: {_x: Z4} = y;
+        interface Interface {
+            x: Z5;
+        }
+
+        enum Color {
+            Red = 1,
+            Green = 2,
+            Blue = 3
+        }
+
+        console.log(Color.Red);
+
+        class MyClass extends ParentClass {
+            x: T;
+
+            y = this.x
+
+            method(methodParam: Z6) {
+                super.method(methodParam);
+                console.log(this);
+                alert(1)
+            }
+            static staticMethod(staticMethodParam: Z7) {
+                alert(2)
+            }
+            set setter(setterParam: Z8) {
+                alert(3)
+            }
+            static set staticSetter(staticSetterParam: Z9) {
+                alert(4)
+            }
+
+            #privateMethod(privateMethodParam: Z10) {
+                alert(5)
+            }
+            static #privateStaticMethod(privateStaticMethodParam: Z11) {
+                alert(6)
+            }
+        }
+
+        class MyClass2<T> extends ParentClass2<T> {
+            x: T;
+        }
+
+        console.log(new MyClass<W>());
+
+        function f(a: A, b: B) {
+            console.log(this);
+            return a + b;
+        }
+    })
     "#
 );

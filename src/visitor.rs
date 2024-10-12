@@ -3,7 +3,7 @@ use swc_core::{
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, CatchClause, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, Lit, MemberProp, Null, Number, ObjectPatProp, Pat, ReturnStmt, Stmt, Str, ThisExpr, VarDecl
+            ArrowExpr, AwaitExpr, BindingIdent, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, CatchClause, ClassDecl, ClassMethod, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, JSXText, Lit, MemberProp, Null, Number, ObjectPatProp, Param, ParamOrTsParamProp, Pat, PrivateMethod, ReturnStmt, Stmt, Str, ThisExpr, TsAsExpr, TsEnumDecl, TsInterfaceDecl, TsParamPropParam, TsType, TsTypeAliasDecl, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
@@ -11,8 +11,13 @@ use swc_core::{
 
 
 
-fn collect_params(params: &Vec<Pat>) -> Vec<Id> {
+fn collect_params(params: &Vec<Pat>, add_this: bool) -> Vec<Id> {
     let mut result: Vec<Id> = vec![];
+
+    if add_this {
+        let this = (Atom::from("this"), SyntaxContext::empty());
+        result.push(this);
+    }
 
     for param in params {
         match param {
@@ -98,10 +103,11 @@ impl VariableCollector {
 }
 
 impl VariableCollector {
+
     /**
      * Visit a block or function body recursively
      */
-    fn visit_block_recursive(&mut self, params: &Vec<Pat>, visitable: &impl VisitWith<dyn Visit>) {
+    fn visit_block_recursive(&mut self, params: &Vec<Pat>, visitable: &impl VisitWith<dyn Visit>, has_this: bool) {
         // recursively visit the arrow function body with a new collector
         let mut collector = VariableCollector::new();
 
@@ -113,7 +119,7 @@ impl VariableCollector {
         }
 
         // add function parameters to the new collector
-        for param in collect_params(params) {
+        for param in collect_params(params, has_this) {
             if !collector.variable_declarations.contains(&param) {
                 collector.variable_declarations.push(param);
             }
@@ -157,6 +163,26 @@ impl Visit for VariableCollector {
         call_expr.visit_children_with(self);
     }
 
+    fn visit_ts_type(&mut self, node: &TsType) {
+        // ignore type annotations
+    }
+
+    fn visit_ts_type_alias_decl(&mut self, node: &TsTypeAliasDecl) {
+        // ignore type alias declarations
+    }
+
+    fn visit_ts_interface_decl(&mut self, node: &TsInterfaceDecl) {
+        // ignore interface declarations
+    }
+
+    fn visit_ts_enum_decl(&mut self, node: &TsEnumDecl) {
+        // remember enum declaration name
+        if !self.variable_declarations.contains(&node.id.to_id()) {
+            self.variable_declarations.push(node.id.to_id());
+        }
+        // ignore enum declarations
+    }
+
     fn visit_jsx_element_name(&mut self, _name: &JSXElementName) {
         // ignore jsx name as identifier
     }
@@ -168,7 +194,8 @@ impl Visit for VariableCollector {
     fn visit_this_expr(&mut self, _node: &ThisExpr) {
         // add 'this' to used variables
         let var = (Atom::from("this"), SyntaxContext::empty());
-        if !self.used_variables.contains(&var) {
+        if !self.used_variables.contains(&var) &&
+            !self.variable_declarations.contains(&var) {
             self.used_variables.push(var);
         }
     }
@@ -270,26 +297,77 @@ impl Visit for VariableCollector {
         // Visit the function body
         self.visit_block_recursive(
             &fn_decl.function.params.iter().map(|p| p.pat.clone()).collect(),
-            &fn_decl.function.body
+            &fn_decl.function.body,
+            true
         );
-    }
-
-    fn visit_arrow_expr(&mut self, node: &ArrowExpr) {
-        // Visit function body recursively
-        self.visit_block_recursive(&node.params, &node.body);
     }
 
     fn visit_fn_expr(&mut self, node: &FnExpr) {
         // Visit the function body
         self.visit_block_recursive(
             &node.function.params.iter().map(|p| p.pat.clone()).collect(),
-            &node.function.body
+            &node.function.body,
+            true
         );
+    }
+
+    fn visit_constructor(&mut self, node: &swc_core::ecma::ast::Constructor) {
+        // Visit the constructor body
+        self.visit_block_recursive(
+            &node.params.iter().map(|p| match p {
+                ParamOrTsParamProp::Param(p) => p.pat.clone(),
+                ParamOrTsParamProp::TsParamProp(p) => match &p.param {
+                    TsParamPropParam::Ident(i) => Pat::Ident(i.clone()),
+                    TsParamPropParam::Assign(a) => Pat::Assign(a.clone()),
+                }
+            }).collect(),
+            &node.body,
+            true
+        );
+    }
+
+    fn visit_class_method(&mut self, node: &ClassMethod) {       
+        // Visit the class method body
+        self.visit_block_recursive(
+            &node.function.params.iter().map(|p| p.pat.clone()).collect(),
+            &node.function.body,
+            true
+        );
+    }
+
+    fn visit_private_method(&mut self, node: &PrivateMethod) {
+        // Visit the private method body
+        self.visit_block_recursive(
+            &node.function.params.iter().map(|p| p.pat.clone()).collect(),
+            &node.function.body,
+            true
+        );
+    }
+
+    fn visit_arrow_expr(&mut self, node: &ArrowExpr) {
+        // Visit function body recursively
+        self.visit_block_recursive(&node.params, &node.body, false);
+    }
+
+
+    fn visit_class_decl(&mut self, node: &ClassDecl) {
+        // store name in variable_declarations
+        let var = node.ident.to_id();
+        if !self.variable_declarations.contains(&var) {
+            self.variable_declarations.push(var);
+        }
+        // Visit extended class
+        if let Some(super_class) = &node.class.super_class {
+            super_class.visit_with(self);
+        }
+
+        // Visit the class body
+        self.visit_block_recursive(&vec![], &node.class.body, true);
     }
 
     fn visit_block_stmt(&mut self, block_stmt: &BlockStmt) {
         // Visit the block statement recursively
-        self.visit_block_recursive(&vec![], block_stmt);
+        self.visit_block_recursive(&vec![], block_stmt, false);
     }
 
     // catch expression, pass variables to block
@@ -301,7 +379,7 @@ impl Visit for VariableCollector {
             params.push(param.clone());
         }
 
-        self.visit_block_recursive(&params, &node.body);
+        self.visit_block_recursive(&params, &node.body, false);
     }
 
 }
@@ -405,15 +483,7 @@ impl TransformVisitor {
                         }
                 )
             ),
-
-            // is val() call expr -> ignore and just return val
-            Expr::Call(c)
-                if c.callee.is_expr()
-                    && c.callee.as_expr().unwrap().is_ident_ref_to("val") =>
-            {
-                e
-            }
-
+            
             // convert array.map(() => {}) to _$method(array, 'map', (() => {})
             // TODO
             Expr::Call(c)
@@ -566,7 +636,7 @@ impl TransformVisitor {
         let mut collector = VariableCollector::new();
 
         // add arrow function params to collector variable_declarations
-        for param in collect_params(&arrow.params) {
+        for param in collect_params(&arrow.params, false) {
             if !collector.variable_declarations.contains(&param) {
                 collector.variable_declarations.push(param);
             }
@@ -872,8 +942,47 @@ impl Fold for TransformVisitor {
     }
 
     fn fold_jsx_element_childs(&mut self, node: Vec<JSXElementChild>) -> Vec<JSXElementChild> {
+        let mut previous_was_hash_text = false;
+
         node.into_iter()
-            .map(|child| child.fold_with(self))
+            .map(|mut child| {
+
+                if previous_was_hash_text {
+                    // add a space after text containing "#"
+                    match &child {
+                        JSXElementChild::JSXExprContainer(_) => {
+                            previous_was_hash_text = false;
+                            return child;
+                        },
+                        _ => (),
+                    };
+                }
+
+                // remember if element is text containing "#"
+                previous_was_hash_text = match &child {
+                    JSXElementChild::JSXText(t) => t.value.trim_end().ends_with("#static"),
+                    _ => false,
+                };
+
+                // remove the hash at the end of the text
+                if previous_was_hash_text {
+                    child = match child {
+                        JSXElementChild::JSXText(t) => {
+                            let trimmed_val = t.value.trim_end();
+                            let val: Atom = trimmed_val[..trimmed_val.len() - 7].into();
+                            
+                            JSXElementChild::JSXText(JSXText {
+                                span: t.span,
+                                value: val.clone(),
+                                raw: val,
+                            })
+                        },
+                        _ => child,
+                    };
+                }
+
+                child.fold_with(self)
+            })
             .collect()
     }
 
