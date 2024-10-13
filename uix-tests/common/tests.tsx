@@ -11,37 +11,37 @@ export default {
 
 	'/test1': () => <div>Test 1</div>,
 	'/test2': () => {
-		const value = $$(0);
+		const value = $(0);
 
 		const data = always(() => ({a: value.val}));
 
 		console.log(data);
 
-		const data2 = $$({a: 0});
+		const data2 = $({a: 0});
 		effect(() => {
 			console.log("value:", value.val)
 			data2.a = value;
 		});
 
-		let x = $$(1);
+		let x = $(1);
 
-		const classes = $$(["a", "b"]);
+		const classes = $(["a", "b"]);
 		setInterval(() => {
 			classes.push("c_" + Math.round(Math.random()*100));
 		}, 1000);
 
-		const classesObj = $$({a: true, b: false, c:4});
+		const classesObj = $({a: true, b: false, c:4});
 		setInterval(() => {
 			classesObj.a = !classesObj.a;
 			classesObj.b = !classesObj.b;
 		}, 1000);
 
-		return <div id="xy" class={$$("xyz")}>
+		return <div id="xy" class={$("xyz")}>
 			<input
 				class={classes}
-				disabled={$$(false)}
+				disabled={$(false)}
 				required={true}
-				type={$$("text" as const)} 
+				type={$("text" as const)} 
 				value={value}
 				onclick={(e) => {
 					console.log("click", e);
@@ -52,7 +52,7 @@ export default {
 			/>
 			
 			<input class={({s:true})} type="number" value={'xy'}/>
-			<input type={"button"} value={$("fe")} style={$$({color: 'red', x: [3]})} onclick:frontend={() => alert("Click!")}/>
+			<input type={"button"} value={$("fe")} style={$({color: 'red', x: [3]})} onclick:frontend={() => globalThis.alert("Click!")}/>
 
 			<x-custom-element x="234" y={5}>x</x-custom-element>
 			<Component1 number1={value} number2={value} data={data}/>
@@ -70,7 +70,7 @@ export default {
 	'/test3': () => <input type="number" value={Promise.resolve('123')}/>,
 
 	'/test4': () => {
-		const arr = $$([0]);
+		const arr = $([0]);
 		setInterval(() => {
 			arr.push(Math.random());
 		}, 1000);
@@ -159,7 +159,7 @@ export default {
 
 	'/test9': () => {
 		const x = 0;
-		const y = $$(1);
+		const y = $(1);
 		return <div>
 			<input value={y}/>
 			<Component1 class="xyxyx" number1={y} number2={x + 2} data={{a:42}}/>
@@ -168,7 +168,7 @@ export default {
 
 	'/test10': () => <main>
 		<BaseComponent title="Base" color="red"/>
-		<ChildComponent title="Child" color={"orange"} counter={$$(3)}/>
+		<ChildComponent title="Child" color={"orange"} counter={$(3)}/>
 	</main>,
 
 	'/test11': () => {
