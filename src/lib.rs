@@ -875,3 +875,29 @@ test!(
     }
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t54,
+    r#"<button onclick:frontend={function () {console.log(x)}} />"#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t55,
+    r#"
+    run(function xy () {
+        console.log(x);
+    })
+    "#
+);

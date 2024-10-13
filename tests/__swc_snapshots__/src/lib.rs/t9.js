@@ -1,4 +1,1 @@
-<button value:frontend={always(()=>{
-    use("silent-errors", x);
-    return x + 1;
-})}/>;
+<button value:frontend={always(()=>x + 1)}/>;
