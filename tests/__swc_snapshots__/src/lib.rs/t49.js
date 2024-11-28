@@ -18,10 +18,10 @@ call(function({ title, icon, children }) {
             2,
             3
         ])}
-            {..._$method([
-        1,
-        2,
-        3
-    ], "map", (item)=><span>{item}</span>)}
+            {..._$method(_$(()=>[
+            1,
+            2,
+            3
+        ]), "map", (item)=><span>{item}</span>)}
         </div>;
 });

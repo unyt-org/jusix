@@ -901,3 +901,22 @@ test!(
     })
     "#
 );
+
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t56,
+    r#"<div>
+        {
+            array
+                .filter(item => item > 0)
+                .map(item => <span>{item}</span>)
+        }
+    </div>
+    "#
+);
