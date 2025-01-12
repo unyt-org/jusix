@@ -826,6 +826,14 @@ impl TransformVisitor {
             })
             .expr
     }
+
+    fn get_remaining_args(call: &CallExpr) -> Vec<ExprOrSpread> {
+        call.clone()
+            .args
+            .into_iter()
+            .skip(1)
+            .collect()
+    }
 }
 
 impl Fold for TransformVisitor {
@@ -833,6 +841,7 @@ impl Fold for TransformVisitor {
         return match &call.callee {
             Callee::Expr(e) => {
                 let arg = TransformVisitor::get_first_arg(&call);
+                let remaining_args = TransformVisitor::get_remaining_args(&call);
 
                 return match e.unwrap_parens() {
                     Expr::Ident(i) if i.sym.eq_ignore_ascii_case("always") => {
@@ -859,14 +868,8 @@ impl Fold for TransformVisitor {
                                 match reactive.unwrap_parens() {
                                     Expr::Call(c) => c.clone(),
                                     // transform_expr_reactive returns a CallExpr in all cases except for Expr::Arrow(_) | Expr::Fn
-                                    _ => CallExpr {
-                                        span: DUMMY_SP,
-                                        callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
-                                            "always".into(),
-                                            DUMMY_SP,
-                                            call.ctxt,
-                                        )))),
-                                        args: vec![
+                                    _ => {
+                                        let mut new_args = vec![
                                             match arg.unwrap_parens() {
                                                 Expr::Arrow(_) | Expr::Fn(_) => arg.into(),
                                                 _ => Expr::Arrow(ArrowExpr {
@@ -881,9 +884,25 @@ impl Fold for TransformVisitor {
                                                 })
                                                 .into(),
                                             }
-                                        ],
-                                        type_args: Take::dummy(),
-                                        ctxt: call.ctxt,
+                                        ];
+
+                                        if remaining_args.len() > 0 {
+                                            for arg in remaining_args {
+                                                new_args.push(arg);
+                                            }
+                                        }
+                                        
+                                        CallExpr {
+                                            span: DUMMY_SP,
+                                            callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                                                "always".into(),
+                                                DUMMY_SP,
+                                                call.ctxt,
+                                            )))),
+                                            args: new_args,
+                                            type_args: Take::dummy(),
+                                            ctxt: call.ctxt,
+                                        }
                                     }
                                 }
                             }

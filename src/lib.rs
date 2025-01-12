@@ -920,3 +920,17 @@ test!(
     </div>
     "#
 );
+
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor,
+    t57,
+    r#"
+    const test = always(() => x + 1, {allowStatic: true});
+    "#
+);
