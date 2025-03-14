@@ -436,7 +436,11 @@ pub struct TransformVisitor;
 impl TransformVisitor {
     // wraps in expression in always() if needed
     fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str) -> Box<Expr> {
+
+        // TODO: check reactive index to see if this expression should be wrapped in always
+
         match e.unwrap_parens() {
+            // TODO: also wrap as pointers
             // keep single literal values
             Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) => e,
 
