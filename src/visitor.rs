@@ -473,10 +473,16 @@ impl TransformVisitor {
     // wraps in expression in always() if needed
     fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str, is_direct_jsx_child: bool) -> Box<Expr> {
 
-        if let Some(positions) = &self.reactive_positions {
-            let current_attr_index = self.jsx_attr_index - 1;
-            if !positions.contains(&current_attr_index) {
-                return e;
+        if is_direct_jsx_child {
+            if let Some(positions) = &self.reactive_positions {
+                // not yet in an attribute
+                if self.jsx_attr_index == 0 {
+                    return e;
+                }
+                let current_attr_index = self.jsx_attr_index - 1;
+                if !positions.contains(&current_attr_index) {
+                    return e;
+                }
             }
         }
         
