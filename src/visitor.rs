@@ -478,7 +478,6 @@ impl TransformVisitor {
         if let Some(positions) = &self.reactive_positions {
             let current_attr_index = self.jsx_attr_index - 1;
             if !positions.contains(&current_attr_index) {
-                println!("not reactive: {:?}", current_attr_index);
                 return e;
             }
         }
