@@ -1,13 +1,217 @@
+use swc_core::ecma::visit::VisitWith;
 use swc_core::ecma::{ast::Program, transforms::testing::test, visit::FoldWith};
 use swc_core::plugin::{plugin_transform, proxies::TransformPluginProgramMetadata};
 use swc_ecma_parser::{EsSyntax, Syntax, TsSyntax};
 use visitor::TransformVisitor;
 
 pub mod visitor;
+mod reactive_positions_extractor;
 
 #[plugin_transform]
 pub fn process_transform(program: Program, _metadata: TransformPluginProgramMetadata) -> Program {
-    program.fold_with(&mut TransformVisitor)
+    // extract the first comment node from the program to get reactive positions metadata
+    let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+    program.visit_children_with(&mut positions_visitor);
+    program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions))
+}
+
+// Test reactive position extraction with ReactivePositionsVisitor
+#[cfg(test)]
+mod test {
+    use swc_core::common::errors::{ColorConfig, Handler};
+    use swc_core::common::{FileName, SourceMap, DUMMY_SP};
+    use swc_core::ecma::ast::{Module, Program};
+    use swc_core::ecma::visit::{FoldWith, VisitWith};
+    use swc_ecma_codegen::to_code_default;
+    use swc_ecma_parser::lexer::Lexer;
+    use swc_ecma_parser::{Capturing, Parser, StringInput, Syntax, TsSyntax};
+    use crate::visitor::TransformVisitor;
+
+    use super::reactive_positions_extractor;
+    use swc_common::{sync::Lrc};
+
+    fn source_to_module(src: String) -> Module {
+        let cm: Lrc<SourceMap> = Default::default();
+        let handler = Handler::with_tty_emitter(ColorConfig::Auto, true, false, Some(cm.clone()));
+
+        
+        let fm = cm.new_source_file(
+            FileName::Custom("test.ts".into()).into(),
+            src.into(),
+        );
+    
+        let lexer = Lexer::new(
+            Syntax::Typescript(TsSyntax {
+                tsx: true,
+                ..Default::default()
+            }),
+            Default::default(),
+            StringInput::from(&*fm),
+            None,
+        );
+    
+        let capturing = Capturing::new(lexer);
+    
+        let mut parser = Parser::new_from(capturing);
+    
+        for e in parser.take_errors() {
+            e.into_diagnostic(&handler).emit();
+        }
+    
+        parser
+            .parse_typescript_module()
+            .map_err(|e| e.into_diagnostic(&handler).emit())
+            .expect("Failed to parse module.")
+    }
+
+    fn module_to_source(module: &Module) -> String {
+        let cm: Lrc<SourceMap> = Default::default();
+        to_code_default(cm.clone(), None, &module)
+    }
+
+    #[test]
+    fn reactive_position_extraction() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[10,42,100000];\nimport 'x.ts';\nconst test = 10;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(vec![10,42,100000]));
+    }
+
+    #[test]
+    fn reactive_position_extraction_none() {
+        // create mock program with a comment node
+        let program = source_to_module("import 'x.ts';\nconst test = 10;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, None);
+    }
+
+    #[test]
+    fn reactive_position_extraction_empty() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[];\nimport 'x.ts';\nconst test = 10;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(Vec::<u32>::new()));
+    }
+
+    #[test]
+    fn reactive_attribute_no_positions() {
+        // create mock program with a comment node
+        let program = source_to_module("export default <Test a={ x + 1 } />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+        assert_eq!(positions_visitor.positions, None);
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "export default <Test a={_$(()=>x + 1)}/>;\n");
+    }
+
+    #[test]
+    fn non_reactive_attribute() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[];export default <Test a={ x + 1 } />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(Vec::<u32>::new()));
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [];\nexport default <Test a={x + 1}/>;\n");
+    }
+
+    #[test]
+    fn reactive_attribute() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[0];export default <Test a={ x + 1 } />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(vec![0]));
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={_$(()=>x + 1)}/>;\n");
+    }
+
+    #[test]
+    fn reactive_lit_attribute() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[0];export default <Test a={ 42 } />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(vec![0]));
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={_$(()=>42)}/>;\n");
+    }
+
+    #[test]
+    fn reactive_lit_string_attribute() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[0];export default <Test a=\"xyz\" />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(vec![0]));
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={_$(()=>\"xyz\")}/>;\n");
+    }
+
+    #[test]
+    fn reactive_lit_string_attribute_namespaced() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[0];export default <Test a:frontend=\"xyz\" />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(vec![0]));
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a:frontend={_$(()=>\"xyz\")}/>;\n");
+    }
+
+    #[test]
+    fn reactive_lit_string_attribute_boolean() {
+        // create mock program with a comment node
+        let program = source_to_module("const __UIX_REACTIVE_POSITIONS=[0];export default <Test enabled />;".to_string());
+        let mut positions_visitor = reactive_positions_extractor::ReactivePositionsVisitor::default();
+
+        program.visit_children_with(&mut positions_visitor);
+
+        assert_eq!(positions_visitor.positions, Some(vec![0]));
+
+        let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
+        let source_code = module_to_source(&program);
+
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test enabled={_$(()=>true)}/>;\n");
+    }
 }
 
 // An example to test plugin transform.
@@ -16,21 +220,21 @@ pub fn process_transform(program: Program, _metadata: TransformPluginProgramMeta
 // unless explicitly required to do so.
 test!(
     Default::default(),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t1,
     r#"const x = always(10)"#
 );
 
 test!(
     Default::default(),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t2,
     r#"const y = always(y * 2)"#
 );
 
 test!(
     Default::default(),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t3,
     r#"run((a) => {
         console.log(a, x + y);
@@ -40,14 +244,14 @@ test!(
 
 test!(
     Default::default(),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t4,
     r#"run(() => x + 1)"#
 );
 
 test!(
     Default::default(),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t5,
     r#"run(() => {
         use(x);
@@ -60,7 +264,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t6,
     r#"<button onclick:frontend={() => console.log(x)} />"#
 );
@@ -70,7 +274,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t7,
     r#"<button value={x+1} />"#
 );
@@ -80,7 +284,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t8,
     r#"<button value:frontend={x+1} />"#
 );
@@ -90,14 +294,14 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t9,
     r#"<button value:frontend={always(() => x+1)} />"#
 );
 
 test!(
     Default::default(),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t10,
     r#"normalCallback(() => {
         return x + y;
@@ -110,7 +314,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t11,
     r#"<div>{ x + 1 }</div>"#
 );
@@ -121,7 +325,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t12,
     r#"<div>
         <span>{ x + 1 }</span>
@@ -137,7 +341,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t13,
     r#"<div>
         {
@@ -155,7 +359,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t14,
     r#"<div>{x.title}</div>"#
 );
@@ -165,7 +369,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t15,
     r#"<input value={x.name}/>"#
 );
@@ -175,7 +379,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t16,
     r#"<input value={x.$.name} id={x.$$.name}/>"#
 );
@@ -186,7 +390,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t17,
     r#"<input value={x['äü']}/>"#
 );
@@ -197,7 +401,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t18,
     r#"<div>
         {
@@ -215,7 +419,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t19,
     r#"<div>
         {
@@ -256,7 +460,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t20,
     r#"<input value={x[0]}/>"#
 );
@@ -266,7 +470,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t21,
     r#"<input value={x.y.z[0]}/>"#
 );
@@ -276,7 +480,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t22,
     r#"const x = arr.map(a => a*2)"#
 );
@@ -286,7 +490,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t23,
     r#"const x = always(arr.map(a => a*2))"#
 );
@@ -296,7 +500,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t24,
     r#"const x = always(() => x + 1)"#
 );
@@ -307,7 +511,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t25,
     r#"const x = always(x.$.y)"#
 );
@@ -317,7 +521,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t26,
     r#"
     const x = <div>{x+1}</div>;
@@ -332,7 +536,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t27,
     r#"
     const x = always([
@@ -346,7 +550,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t28,
     r#"
     const x = always([
@@ -361,7 +565,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t29,
     r#"
     export default <div>
@@ -376,7 +580,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t30,
     r#"
     const x = <div>
@@ -396,7 +600,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t31,
     r#"
     function x () {
@@ -411,7 +615,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t32,
     r#"
     call(function () {
@@ -425,7 +629,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t33,
     r#"
     () => {
@@ -440,7 +644,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t34,
     r#"
     template(() => {
@@ -455,7 +659,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t35,
     r#"
     <div>
@@ -473,7 +677,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t36,
     r#"
     let x = 10;
@@ -489,7 +693,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t37,
     r#"
     <input 
@@ -513,7 +717,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t38,
     r#"
     <div>
@@ -540,7 +744,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t39,
     r#"
     <div>
@@ -556,7 +760,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t40,
     r#"
     <div>
@@ -572,7 +776,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t41,
     r#"
     export default {
@@ -587,7 +791,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t42,
     r#"
     renderFrontend(async () => {
@@ -604,7 +808,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t43,
     r#"
     renderFrontend(() => {
@@ -626,7 +830,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t44,
     r#"
     renderFrontend(() => {
@@ -645,7 +849,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t45,
     r#"
     renderFrontend(() => {
@@ -659,7 +863,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t46,
     r#"
     renderFrontend(() => {
@@ -678,7 +882,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t47,
     r#"
     renderFrontend(() => {
@@ -701,7 +905,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t48,
     r#"
     class A {
@@ -723,7 +927,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t49,
     r#"
     call(function ({title, icon, children}) {
@@ -749,7 +953,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t50,
     r#"
     <div>
@@ -778,7 +982,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t51,
     r#"
     <button 
@@ -794,7 +998,7 @@ test!(
         tsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t52,
     r#"
     run(() => {
@@ -862,7 +1066,7 @@ test!(
         tsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t53,
     r#"
     class X {
@@ -882,7 +1086,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t54,
     r#"<button onclick:frontend={function () {console.log(x)}} />"#
 );
@@ -893,7 +1097,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t55,
     r#"
     run(function xy () {
@@ -909,7 +1113,7 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t56,
     r#"<div>
         {
@@ -928,9 +1132,97 @@ test!(
         jsx: true,
         ..Default::default()
     },),
-    |_| TransformVisitor,
+    |_| TransformVisitor::default(),
     t57,
     r#"
     const test = always(() => x + 1, {allowStatic: true});
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0])),
+    t58,
+    r#"
+    export default <Test a={ x + 1 } />;
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![1])),
+    t59,
+    r#"
+    export default <Test a={ x + 1 } />;
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![1])),
+    t60,
+    r#"
+    export default <Test a={ x + 1 } b = { y + 1 } />;
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![1])),
+    t61,
+    r#"
+    export default <Test a={ x + 1 } boolean />;
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![4,7,9])),
+    t62,
+    r#"
+    const x = <div a0="5" a1>
+        <span a2={b()}>Test</span>
+    </div>;
+    export default <Test a3 a4={ makeReactive() } a5 = { <div a6={x}>Test</div> } >
+        <span>{x}</span>
+        <span a7={reactiveVar}>
+            Test
+            <div a8={x + 1}>Test</div>
+        </span>
+        <div a9>Test</div>
+    </Test>;
+    "#
+);
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::default(),
+    t63,
+    r#"
+    export default <Test a={ x +1 } inner={ <div b={ x + 1 }>Test</div> }>
+        Content
+    </Test>;
     "#
 );

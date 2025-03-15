@@ -1,9 +1,10 @@
+use swc_common::Spanned;
 use swc_core::{
     atoms::Atom,
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
     ecma::{
         ast::{
-            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, CallExpr, Callee, CatchClause, ClassDecl, ClassMethod, Constructor, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Function, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, JSXText, Lit, MemberProp, Null, Number, ObjectPatProp, ParamOrTsParamProp, Pat, PrivateMethod, ReturnStmt, Stmt, Str, ThisExpr, TsEnumDecl, TsInterfaceDecl, TsParamPropParam, TsType, TsTypeAliasDecl, VarDecl
+            ArrowExpr, AwaitExpr, BlockStmt, BlockStmtOrExpr, Bool, CallExpr, Callee, CatchClause, ClassDecl, ClassMethod, Constructor, Expr, ExprOrSpread, ExprStmt, FnDecl, FnExpr, Function, Id, Ident, JSXAttr, JSXAttrName, JSXAttrValue, JSXElement, JSXElementChild, JSXElementName, JSXEmptyExpr, JSXExpr, JSXExprContainer, JSXSpreadChild, JSXText, Lit, MemberProp, Null, Number, ObjectPatProp, ParamOrTsParamProp, Pat, PrivateMethod, ReturnStmt, Stmt, Str, ThisExpr, TsEnumDecl, TsInterfaceDecl, TsParamPropParam, TsType, TsTypeAliasDecl, VarDecl
         },
         visit::{Fold, FoldWith, Visit, VisitWith},
     },
@@ -431,21 +432,64 @@ const RENDER_METHODS: [&'static str; 6] = [
 ];
 
 
-pub struct TransformVisitor;
+pub struct TransformVisitor {
+    pub jsx_attr_index: u32,
+    pub reactive_positions: Option<Vec<u32>>,
+}
+
+impl Default for TransformVisitor {
+    fn default() -> Self {
+        Self {
+            jsx_attr_index: 0,
+            reactive_positions: None,
+        }
+    }
+}
 
 impl TransformVisitor {
+
+    pub fn with_reactive_positions(reactive_positions: Option<Vec<u32>>) -> Self {
+        Self {
+            jsx_attr_index: 0,
+            reactive_positions,
+        }
+    }
+
+    fn lit_attr_to_expression_attr(&mut self, node: JSXAttr, lit: Lit) -> JSXAttr {
+        JSXAttr {
+            span: node.span,
+            name: node.name.clone(),
+            value: Some(JSXAttrValue::JSXExprContainer(
+                self.fold_jsx_expr_container(
+                    JSXExprContainer {
+                        span: DUMMY_SP,
+                        expr: JSXExpr::Expr(Box::new(Expr::Lit(lit))),
+                    },   
+                ),
+            )),
+        }
+    }
+
     // wraps in expression in always() if needed
     fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str) -> Box<Expr> {
 
         // TODO: check reactive index to see if this expression should be wrapped in always
 
+        if let Some(positions) = &self.reactive_positions {
+            let current_attr_index = self.jsx_attr_index - 1;
+            if !positions.contains(&current_attr_index) {
+                println!("not reactive: {:?}", current_attr_index);
+                return e;
+            }
+        }
+
         match e.unwrap_parens() {
             // TODO: also wrap as pointers
             // keep single literal values
-            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) => e,
+            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) if self.reactive_positions.is_none() => e,
 
             // keep functions
-            Expr::Arrow(_) | Expr::Fn(_) => e,
+            Expr::Arrow(_) | Expr::Fn(_) if self.reactive_positions.is_none() => e,
 
             // has a $.x property, don't add always
             Expr::Member(m)
@@ -838,6 +882,16 @@ impl TransformVisitor {
             .skip(1)
             .collect()
     }
+
+    fn fold_jsx_expr_container_non_recursive(&mut self, n: JSXExprContainer) -> JSXExprContainer {
+        JSXExprContainer {
+            span: DUMMY_SP,
+            expr: (match n.expr {
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$")),
+                JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
+            }),
+        }
+    }
 }
 
 impl Fold for TransformVisitor {
@@ -950,6 +1004,9 @@ impl Fold for TransformVisitor {
     }
 
     fn fold_jsx_attr(&mut self, node: JSXAttr) -> JSXAttr {
+
+        self.jsx_attr_index += 1;
+
         // if attribute ends with :frontend, transform_transferable_call_expr
         match node.name.clone() {
             JSXAttrName::JSXNamespacedName(name)
@@ -981,17 +1038,33 @@ impl Fold for TransformVisitor {
                                         ))),
                                     })),
                                 },
+
+                                Expr::Lit(c) => {
+                                    println!("JSXAttrValue2: {:?}", c);
+                                    JSXAttr {
+                                        span: node.span,
+                                        name: node.name.clone(),
+                                        value: None,
+                                    }
+                                },
+
                                 _ => JSXAttr {
                                     span: node.span,
                                     name: node.name.clone(),
                                     value: Some(JSXAttrValue::JSXExprContainer(
                                         self.fold_jsx_expr_container(c),
                                     )),
-                                },
+                                }
                             },
                             _ => node,
                         }
                     }
+
+                    // also fold literal jsx attribute values (only required if reactive_positions is set)
+                    Some(JSXAttrValue::Lit(c)) if self.reactive_positions.is_some() => {
+                        self.lit_attr_to_expression_attr(node, c)
+                    },
+
                     _ => node,
                 }
             }
@@ -1003,7 +1076,21 @@ impl Fold for TransformVisitor {
                         self.fold_jsx_expr_container(c),
                     )),
                 },
-                _ => node,
+
+                // also fold literal jsx attribute values (only required if reactive_positions is set)
+                Some(JSXAttrValue::Lit(c)) if self.reactive_positions.is_some() => {
+                    self.lit_attr_to_expression_attr(node, c)
+                },
+
+                // None => boolean attribute without value
+                None if self.reactive_positions.is_some() => {
+                    self.lit_attr_to_expression_attr(node.clone(), Lit::Bool(Bool {
+                        span: node.span.clone(),
+                        value: true,
+                    }))
+                },
+
+                _ => node.fold_children_with(self),
             },
         }
     }
@@ -1011,7 +1098,7 @@ impl Fold for TransformVisitor {
     fn fold_jsx_element_child(&mut self, child: JSXElementChild) -> JSXElementChild {
         match child {
             JSXElementChild::JSXExprContainer(c) => JSXElementChild::JSXExprContainer(
-                self.fold_jsx_expr_container(c),
+                self.fold_jsx_expr_container_non_recursive(c),
             ),
             JSXElementChild::JSXSpreadChild(c) => JSXElementChild::JSXSpreadChild(
                 JSXSpreadChild {
@@ -1080,7 +1167,7 @@ impl Fold for TransformVisitor {
         JSXExprContainer {
             span: DUMMY_SP,
             expr: (match n.expr {
-                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$")),
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$").fold_with(self)),
                 JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
             }),
         }
