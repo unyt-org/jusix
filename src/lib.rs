@@ -1253,5 +1253,21 @@ export default <Test x={obj.x ? 1 : 0} y={6} z={obj.z} bool />;
 );
 
 
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0,1,2])),
+    t65,
+    r#"
+export default <div>
+	<Test x={obj.x} y={obj.x} z={obj.z} bool={false} />
+</div>;
+    "#
+);
+
+
+
 
 

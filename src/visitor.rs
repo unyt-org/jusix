@@ -471,9 +471,7 @@ impl TransformVisitor {
     }
 
     // wraps in expression in always() if needed
-    fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str) -> Box<Expr> {
-
-        // TODO: check reactive index to see if this expression should be wrapped in always
+    fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str, is_direct_jsx_child: bool) -> Box<Expr> {
 
         if let Some(positions) = &self.reactive_positions {
             let current_attr_index = self.jsx_attr_index - 1;
@@ -481,14 +479,17 @@ impl TransformVisitor {
                 return e;
             }
         }
+        
+        // proxify literals if enabled for direct jsx attr or child values, 
+        // but only if reactive_positions is set (for backwards compatibility)
+        let proxify_literals = self.reactive_positions.is_some() && is_direct_jsx_child;
 
         match e.unwrap_parens() {
-            // TODO: also wrap as pointers
-            // keep single literal values
-            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) if self.reactive_positions.is_none() => e,
+            // keep literals if proxify_literals is false
+            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) if !proxify_literals => e,
 
-            // keep functions
-            Expr::Arrow(_) | Expr::Fn(_) if self.reactive_positions.is_none() => e,
+            // keep functions if proxify_literals is false
+            Expr::Arrow(_) | Expr::Fn(_) if !proxify_literals => e,
 
             // has a $.x property, don't add always
             Expr::Member(m)
@@ -511,7 +512,7 @@ impl TransformVisitor {
                             )))),
                             args: vec![
                                 ExprOrSpread {
-                                    expr: self.transform_expr_reactive(m.obj.clone(), "_$"),
+                                    expr: self.transform_expr_reactive(m.obj.clone(), "_$", false),
                                     spread: None
                                 },
                                 // convert prop to string
@@ -546,7 +547,7 @@ impl TransformVisitor {
 
                 let mut args: Vec::<ExprOrSpread> = vec![
                     ExprOrSpread {
-                        expr: self.transform_expr_reactive(obj, "_$"),
+                        expr: self.transform_expr_reactive(obj, "_$", false),
                         spread: None
                     },
                     ExprOrSpread {
@@ -886,7 +887,7 @@ impl TransformVisitor {
         JSXExprContainer {
             span: DUMMY_SP,
             expr: (match n.expr {
-                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$")),
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", false)),
                 JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
             }),
         }
@@ -921,7 +922,7 @@ impl Fold for TransformVisitor {
 
                             // default: wrap in always
                             _ => {
-                                let reactive = self.transform_expr_reactive(arg.clone(), "always");
+                                let reactive = self.transform_expr_reactive(arg.clone(), "always", false);
                                 match reactive.unwrap_parens() {
                                     Expr::Call(c) => c.clone(),
                                     // transform_expr_reactive returns a CallExpr in all cases except for Expr::Arrow(_) | Expr::Fn
@@ -1102,7 +1103,7 @@ impl Fold for TransformVisitor {
             JSXElementChild::JSXSpreadChild(c) => JSXElementChild::JSXSpreadChild(
                 JSXSpreadChild {
                     span: DUMMY_SP,
-                    expr: self.transform_expr_reactive(c.expr, "_$")
+                    expr: self.transform_expr_reactive(c.expr, "_$", true)
                 }
             ),
             JSXElementChild::JSXElement(e) => JSXElementChild::JSXElement(
@@ -1166,7 +1167,7 @@ impl Fold for TransformVisitor {
         JSXExprContainer {
             span: DUMMY_SP,
             expr: (match n.expr {
-                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$").fold_with(self)),
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", true).fold_with(self)),
                 JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
             }),
         }
