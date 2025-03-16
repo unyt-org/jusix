@@ -1268,6 +1268,22 @@ export default <div>
 );
 
 
-
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0,2])),
+    t66,
+    r#"
+    function Test() {
+        return <div>{y}</div>
+    }
+    export default <div><Test x={42} y={43}/>{z}</div>;
+    function Test2() {
+        return <div x={42}>{y}</div>
+    }
+    "#
+);
 
 
