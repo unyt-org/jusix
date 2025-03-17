@@ -1287,3 +1287,12 @@ test!(
 );
 
 
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0])),
+    t67,
+    r#"<input value={x.y.z[0]}/>"#
+);
