@@ -12,6 +12,6 @@
     return <span>{_$(()=>item * x)}</span>;
 })}
          {_$(()=>array.normalMethod((item)=>{
-        return <span>{item * 2}</span>;
+        return <span>{_$(()=>item * 2)}</span>;
     }))}
     </div>;

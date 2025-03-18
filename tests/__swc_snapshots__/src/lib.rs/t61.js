@@ -1,1 +1,1 @@
-export default <Test a={x + 1} boolean={_$(()=>true)}/>;
+export default <Test a={x + 1} boolean={$(true)}/>;

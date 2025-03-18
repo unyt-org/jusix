@@ -8,7 +8,7 @@ call(function({ title, icon, children }) {
         use("silent-errors", this);
         return this.closeDialog();
     }} class="mobile-back"><i class="fa-solid fa-chevron-left"/></span>
-                {_$(()=>icon && <i class={`fas ${icon}`} style="margin-right:10px"/>)}
+                {_$(()=>icon && <i class={_$(()=>`fas ${icon}`)} style="margin-right:10px"/>)}
                 {title}
             </h1>
             {...children}

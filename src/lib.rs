@@ -162,7 +162,7 @@ mod test {
         let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
         let source_code = module_to_source(&program);
 
-        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={_$(()=>42)}/>;\n");
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={$(42)}/>;\n");
     }
 
     #[test]
@@ -178,7 +178,7 @@ mod test {
         let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
         let source_code = module_to_source(&program);
 
-        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={_$(()=>\"xyz\")}/>;\n");
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a={$(\"xyz\")}/>;\n");
     }
 
     #[test]
@@ -194,7 +194,7 @@ mod test {
         let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
         let source_code = module_to_source(&program);
 
-        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a:frontend={_$(()=>\"xyz\")}/>;\n");
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test a:frontend={$(\"xyz\")}/>;\n");
     }
 
     #[test]
@@ -210,7 +210,7 @@ mod test {
         let program = program.fold_with(&mut TransformVisitor::with_reactive_positions(positions_visitor.positions));
         let source_code = module_to_source(&program);
 
-        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test enabled={_$(()=>true)}/>;\n");
+        assert_eq!(source_code, "const __UIX_REACTIVE_POSITIONS = [\n    0\n];\nexport default <Test enabled={$(true)}/>;\n");
     }
 }
 
@@ -1201,8 +1201,8 @@ test!(
     const x = <div a0="5" a1>
         <span a2={b()}>Test</span>
     </div>;
-    export default <Test a3 a4={ makeReactive() } a5 = { <div a6={x}>Test</div> } >
-        <span>{x}</span>
+    export default <Test a3 a4={ makeReactive() } a5 = { <div a6={x6}>Test</div> } >
+        <span>{child}</span>
         <span a7={reactiveVar}>
             Test
             <div a8={x + 1}>Test</div>
@@ -1308,3 +1308,82 @@ test!(
     r#"const x = <div>{'num=' + num}</div>"#
 );
 
+
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0,1,3])),
+    t69,
+    r#"
+const y = 
+    <div>
+		{
+			true ? <div stylereactive={"color:green"}>Active</div> :
+			<div stylereactive={"color:red"}>Not active</div>
+		}
+	</div>;
+
+export default <Example num={ static() } bool={ reactive() } user={static()} />
+
+    "#
+);
+
+
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0,1,2,3,5])),
+    t70,
+    r#"
+const y = 
+    <div data={
+			true ? <div style={"color:greenreactive"}>Active</div> :
+			<Test style={"reactive!"}>Not active</Test>
+	}>
+	</div>;
+
+export default <Example num={ reactive() } bool={ static() } user={reactive()} />
+
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0,1,2])),
+    t71,
+    r#"
+    export default <Test a={ x +1 } inner={ <div b={ x + 1 }>Test</div> }>
+        Content
+        <div x={y*2}/>
+    </Test>;
+    "#
+);
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![2,4,6,7,9])),
+    t72,
+    r#"
+    const x = <div a0="5" a1>
+        <span a2={reactive()}>Test</span>
+    </div>;
+    export default <Test a3 a4={ makeReactive() } a5={ <div a6={reactive}>Test</div> } >
+        <span>{x}</span>
+        <span a7={reactiveVar}>
+            Test
+            <div a8={x + 1}>Test</div>
+        </span>
+        <div a9>Test</div>
+    </Test>;
+    "#
+);

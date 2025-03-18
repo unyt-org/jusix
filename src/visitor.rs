@@ -464,16 +464,19 @@ impl TransformVisitor {
                     JSXExprContainer {
                         span: DUMMY_SP,
                         expr: JSXExpr::Expr(Box::new(Expr::Lit(lit))),
-                    },   
+                    },
+                    true
                 ),
             )),
         }
     }
 
     // wraps in expression in always() if needed
-    fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str, is_direct_jsx_child: bool) -> Box<Expr> {
+    fn transform_expr_reactive(&mut self, e: Box<Expr>, always_fn_name: &str, is_jsx_attr: bool) -> Box<Expr> {
+        // println!("transform_expr_reactive: {:?} {} {}", e, self.jsx_attr_index - 1, is_direct_jsx_child);
 
-        if is_direct_jsx_child {
+        if is_jsx_attr {
+
             if let Some(positions) = &self.reactive_positions {
                 // not yet in an attribute
                 if self.jsx_attr_index == 0 {
@@ -488,14 +491,64 @@ impl TransformVisitor {
         
         // proxify literals if enabled for direct jsx attr or child values, 
         // but only if reactive_positions is set (for backwards compatibility)
-        let proxify_literals = self.reactive_positions.is_some() && is_direct_jsx_child;
+        let proxify_literals = self.reactive_positions.is_some() && is_jsx_attr;
 
         match e.unwrap_parens() {
             // keep literals if proxify_literals is false
-            Expr::Lit(_) | Expr::JSXElement(_) | Expr::Ident(_) | Expr::This(_) if !proxify_literals => e,
+            Expr::Lit(_)  | Expr::Ident(_) | Expr::This(_) => {
+                if proxify_literals {
+                     // TODO: $() wrapper
+                     Box::new(Expr::Call(
+                        CallExpr {
+                            span: DUMMY_SP,
+                            callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                                "$".into(),
+                                DUMMY_SP,
+                                Default::default(),
+                            )))),
+                            args: vec![e.into()],
+                            type_args: Take::dummy(),
+                            ctxt: Default::default(),
+                        }
+                    ))
+                }
+                else {
+                    e
+                }
+            },
+
+            Expr::JSXElement(_) => {
+                if proxify_literals {
+                    // _$() wrapper, stop recursion
+                    Box::new(Expr::Call(CallExpr {
+                        span: DUMMY_SP,
+                        callee: Callee::Expr(Box::new(Expr::Ident(Ident::new(
+                            always_fn_name.into(),
+                            DUMMY_SP,
+                            Default::default(),
+                        )))),
+                        args: vec![Expr::Arrow(ArrowExpr {
+                            span: DUMMY_SP,
+                            params: Take::dummy(),
+                            body: Box::new(BlockStmtOrExpr::Expr(e)),
+                            is_async: false,
+                            is_generator: false,
+                            type_params: Take::dummy(),
+                            return_type: Take::dummy(),
+                            ctxt: Default::default(),
+                        })
+                        .into()],
+                        type_args: Take::dummy(),
+                        ctxt: Default::default(),
+                    }))
+                }
+                else {
+                    e
+                }
+            }
 
             // keep functions if proxify_literals is false
-            Expr::Arrow(_) | Expr::Fn(_) if !proxify_literals => e,
+            Expr::Arrow(_) | Expr::Fn(_) if !proxify_literals => e.fold_with(self),
 
             // has a $.x property, don't add always
             Expr::Member(m)
@@ -889,15 +942,26 @@ impl TransformVisitor {
             .collect()
     }
 
-    fn fold_jsx_expr_container_non_recursive(&mut self, n: JSXExprContainer) -> JSXExprContainer {
+    fn fold_jsx_expr_container_non_recursive(&mut self, n: JSXExprContainer, is_direct_jsx_child: bool) -> JSXExprContainer {
         JSXExprContainer {
             span: DUMMY_SP,
             expr: (match n.expr {
-                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", false)),
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", is_direct_jsx_child)),
                 JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
             }),
         }
     }
+
+    fn fold_jsx_expr_container(&mut self, n: JSXExprContainer, is_jsx_attr: bool) -> JSXExprContainer {
+        JSXExprContainer {
+            span: DUMMY_SP,
+            expr: (match n.expr {
+                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", is_jsx_attr)).fold_with(self),
+                JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
+            }),
+        }
+    }
+
 }
 
 impl Fold for TransformVisitor {
@@ -1011,6 +1075,8 @@ impl Fold for TransformVisitor {
 
     fn fold_jsx_attr(&mut self, node: JSXAttr) -> JSXAttr {
 
+        println!("\n>> INDEX = {} {:?}", self.jsx_attr_index, node);
+
         self.jsx_attr_index += 1;
 
         // if attribute ends with :frontend, transform_transferable_call_expr
@@ -1058,7 +1124,7 @@ impl Fold for TransformVisitor {
                                     span: node.span,
                                     name: node.name.clone(),
                                     value: Some(JSXAttrValue::JSXExprContainer(
-                                        self.fold_jsx_expr_container(c),
+                                        self.fold_jsx_expr_container(c, true),
                                     )),
                                 }
                             },
@@ -1079,7 +1145,7 @@ impl Fold for TransformVisitor {
                     span: node.span,
                     name: node.name.clone(),
                     value: Some(JSXAttrValue::JSXExprContainer(
-                        self.fold_jsx_expr_container(c),
+                        self.fold_jsx_expr_container(c, true),
                     )),
                 },
 
@@ -1104,12 +1170,12 @@ impl Fold for TransformVisitor {
     fn fold_jsx_element_child(&mut self, child: JSXElementChild) -> JSXElementChild {
         match child {
             JSXElementChild::JSXExprContainer(c) => JSXElementChild::JSXExprContainer(
-                self.fold_jsx_expr_container_non_recursive(c),
+                self.fold_jsx_expr_container(c, false),
             ),
             JSXElementChild::JSXSpreadChild(c) => JSXElementChild::JSXSpreadChild(
                 JSXSpreadChild {
                     span: DUMMY_SP,
-                    expr: self.transform_expr_reactive(c.expr, "_$", true)
+                    expr: self.transform_expr_reactive(c.expr, "_$", false)
                 }
             ),
             JSXElementChild::JSXElement(e) => JSXElementChild::JSXElement(
@@ -1169,13 +1235,5 @@ impl Fold for TransformVisitor {
             .collect()
     }
 
-    fn fold_jsx_expr_container(&mut self, n: JSXExprContainer) -> JSXExprContainer {
-        JSXExprContainer {
-            span: DUMMY_SP,
-            expr: (match n.expr {
-                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", true).fold_with(self)),
-                JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
-            }),
-        }
-    }
+
 }

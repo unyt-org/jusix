@@ -1,3 +1,3 @@
 <div>
-        {_$(()=>x ? <span>{x + 1}</span> : <span>False</span>)}
+        {_$(()=>x ? <span>{_$(()=>x + 1)}</span> : <span>False</span>)}
     </div>;
