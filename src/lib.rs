@@ -1296,3 +1296,15 @@ test!(
     t67,
     r#"<input value={x.y.z[0]}/>"#
 );
+
+
+test!(
+    Syntax::Typescript(TsSyntax {
+        tsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![])),
+    t68,
+    r#"const x = <div>{'num=' + num}</div>"#
+);
+
