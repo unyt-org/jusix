@@ -1,4 +1,3 @@
-use swc_common::Spanned;
 use swc_core::{
     atoms::Atom,
     common::{util::take::Take, SyntaxContext, DUMMY_SP},
@@ -940,16 +939,6 @@ impl TransformVisitor {
             .into_iter()
             .skip(1)
             .collect()
-    }
-
-    fn fold_jsx_expr_container_non_recursive(&mut self, n: JSXExprContainer, is_direct_jsx_child: bool) -> JSXExprContainer {
-        JSXExprContainer {
-            span: DUMMY_SP,
-            expr: (match n.expr {
-                JSXExpr::Expr(e) => JSXExpr::Expr(self.transform_expr_reactive(e, "_$", is_direct_jsx_child)),
-                JSXExpr::JSXEmptyExpr(_) => JSXExpr::JSXEmptyExpr(JSXEmptyExpr { span: DUMMY_SP }),
-            }),
-        }
     }
 
     fn fold_jsx_expr_container(&mut self, n: JSXExprContainer, is_jsx_attr: bool) -> JSXExprContainer {
