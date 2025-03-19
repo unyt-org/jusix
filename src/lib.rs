@@ -1387,3 +1387,18 @@ test!(
     </Test>;
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![2,4,6,7,9])),
+    t73,
+    r#"
+    export default <div>
+        <span>{x ? 1 : 2}</span>
+    </div>
+    "#
+);
