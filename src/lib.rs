@@ -1402,3 +1402,46 @@ test!(
     </div>
     "#
 );
+
+
+test!(
+    Syntax::Es(EsSyntax {
+        jsx: true,
+        ..Default::default()
+    },),
+    |_| TransformVisitor::with_reactive_positions(Some(vec![0])),
+    t74,
+    r#"
+    const x1 = <div>
+        { apps.map(section => 
+            <div>
+                { 
+                    Object.entries(section.apps).map(() => <a/>)
+                }
+            </div>
+        )}
+    </div>
+
+    const x2 = <div>
+        { apps.map(section => 
+            <div x={1+2}>
+                { 
+                    Object.entries(section.apps).map(() => <a/>)
+                }
+            </div>
+        )}
+    </div>
+
+    const x3 = <div>
+        { apps.map(section => 
+            <div x={1+2}>
+                { 
+                    x * 100
+                }
+            </div>
+        )}
+    </div>
+    "#
+);
+
+
